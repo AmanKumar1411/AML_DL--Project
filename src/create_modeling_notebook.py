@@ -17,12 +17,15 @@ code_imports = """import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+
+os.makedirs("../results", exist_ok=True)
 
 # Load Data
 try:
@@ -90,10 +93,17 @@ Check accuracy, precision, recall, and ROC-AUC."""
 code_eval = """y_pred = clf.predict(X_test)
 y_prob = clf.predict_proba(X_test)[:, 1]
 
-print("Classification Report:")
-print(classification_report(y_test, y_pred))
+report = classification_report(y_test, y_pred)
+roc_auc = roc_auc_score(y_test, y_prob)
 
-print(f"ROC-AUC Score: {roc_auc_score(y_test, y_prob):.4f}")
+print("Classification Report:")
+print(report)
+print(f"ROC-AUC Score: {roc_auc:.4f}")
+
+with open("../results/model_metrics.txt", "w") as f:
+    f.write("Classification Report:\\n")
+    f.write(report)
+    f.write(f"\\nROC-AUC Score: {roc_auc:.4f}\\n")
 
 # Confusion Matrix
 cm = confusion_matrix(y_test, y_pred)
@@ -101,6 +111,7 @@ sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
 plt.title('Confusion Matrix')
+plt.savefig("../results/confusion_matrix.png", bbox_inches='tight')
 plt.show()"""
 
 text_failure = """## 4. Failure Analysis
@@ -122,6 +133,7 @@ failure_df.loc[(failure_df['Actual']==0) & (failure_df['Predicted']==1), 'Result
 plt.figure(figsize=(12, 6))
 sns.countplot(data=failure_df, y='sector', hue='Result')
 plt.title("Prediction Results by Sector")
+plt.savefig("../results/error_by_sector.png", bbox_inches='tight')
 plt.show()
 
 # High Confidence Failures
@@ -154,6 +166,7 @@ plt.title('Feature Importances')
 plt.barh(range(len(indices)), importances[indices], color='b', align='center')
 plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
 plt.xlabel('Relative Importance')
+plt.savefig("../results/feature_importances.png", bbox_inches='tight')
 plt.show()"""
 
 nb['cells'] = [

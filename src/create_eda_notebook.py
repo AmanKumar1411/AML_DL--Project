@@ -19,10 +19,13 @@ code_imports = """import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 # Set style
 sns.set(style="whitegrid")
 plt.rcParams["figure.figsize"] = (12, 6)
+
+os.makedirs("../results", exist_ok=True)
 
 # Load Processed Data
 try:
@@ -43,6 +46,7 @@ print(f"Overall Win Rate: {win_rate:.1%}")
 plt.figure(figsize=(6, 6))
 df['deal_stage'].value_counts().plot.pie(autopct='%1.1f%%', colors=['#66b3ff','#ff9999'])
 plt.title("Distribution of Deal Outcomes")
+plt.savefig("../results/eda_win_rate_pie.png", bbox_inches='tight')
 plt.show()"""
 
 text_bivariate = """## 2. Sector and Product Analysis
@@ -65,6 +69,7 @@ axes[1].set_ylabel("Win Rate")
 axes[1].tick_params(axis='x', rotation=45)
 
 plt.tight_layout()
+plt.savefig("../results/eda_sector_product_win_rates.png", bbox_inches='tight')
 plt.show()"""
 
 text_discount = """## 3. The "Feel" of the Data: Discounting Strategy
@@ -96,6 +101,7 @@ sns.histplot(won_deals['discount_pct'], bins=30, kde=True)
 plt.title("Distribution of Discounts on WON Deals")
 plt.xlabel("Discount Percentage (Positive = Price Cut)")
 plt.axvline(0, color='red', linestyle='--')
+plt.savefig("../results/eda_discount_dist.png", bbox_inches='tight')
 plt.show()
 
 print(f"Average Discount on Won Deals: {won_deals['discount_pct'].mean():.1%}")
@@ -103,6 +109,7 @@ print(f"Average Discount on Won Deals: {won_deals['discount_pct'].mean():.1%}")
 # Does higher discount correlate with shorter deal duration?
 sns.scatterplot(data=won_deals, x='discount_pct', y='deal_duration_days', alpha=0.3)
 plt.title("Discount vs Deal Duration")
+plt.savefig("../results/eda_discount_vs_duration.png", bbox_inches='tight')
 plt.show()"""
 
 text_seasonality = """## 4. Seasonality
@@ -116,6 +123,7 @@ plt.title("Win Rate by Engagement Month")
 plt.ylabel("Win Rate")
 plt.xticks(range(1, 13))
 plt.grid(True)
+plt.savefig("../results/eda_seasonality.png", bbox_inches='tight')
 plt.show()"""
 
 text_agents = """## 5. Agent Performance
@@ -134,6 +142,7 @@ plt.title("Agent Performance: Volume vs Win Rate (Size = Revenue)")
 # Label top 5 agents
 for i in range(5):
     plt.text(agent_perf.iloc[i]['deals']+2, agent_perf.iloc[i]['win_rate'], agent_perf.index[i])
+plt.savefig("../results/eda_agent_performance.png", bbox_inches='tight')
 plt.show()
 
 agent_perf.head(10)"""
