@@ -1,5 +1,0 @@
-Essential Models (AML + DL)
-                         Model       F1  Precision   Recall  ROC_AUC
-                 MLP (Primary) 0.764024   0.629488 0.971698 0.523867
-                     SVM (RBF) 0.517314   0.645503 0.431604 0.488121
-Logistic Regression (Baseline) 0.472782   0.643002 0.373821 0.514007

@@ -1,9 +1,0 @@
-Model: SVM (RBF)
-              precision    recall  f1-score   support
-
-           0     0.3789    0.5939    0.4626       495
-           1     0.6455    0.4316    0.5173       848
-
-    accuracy                         0.4914      1343
-   macro avg     0.5122    0.5128    0.4900      1343
-weighted avg     0.5472    0.4914    0.4972      1343

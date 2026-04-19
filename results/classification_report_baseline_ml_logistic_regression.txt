@@ -1,9 +1,0 @@
-Model: Logistic Regression (Baseline)
-              precision    recall  f1-score   support
-
-           0     0.3753    0.6444    0.4743       495
-           1     0.6430    0.3738    0.4728       848
-
-    accuracy                         0.4736      1343
-   macro avg     0.5091    0.5091    0.4736      1343
-weighted avg     0.5443    0.4736    0.4734      1343

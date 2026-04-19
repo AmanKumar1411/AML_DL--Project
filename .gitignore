@@ -12,3 +12,26 @@ data/
 models/
 reports/presentation_slides.md
 reports/Project_Report.tex
+reports/DL-Report.tex
+
+# LaTeX build artifacts (do not push)
+reports/*.aux
+reports/*.log
+reports/*.out
+reports/*.toc
+reports/*.bbl
+reports/*.blg
+reports/*.fls
+reports/*.fdb_latexmk
+reports/*.synctex.gz
+
+# Generated modeling artifacts in results/ (do not push)
+results/*.txt
+results/*.csv
+results/classification_report_*.txt
+results/confusion_matrix_*.png
+results/error_analysis_*.png
+results/high_confidence_*.csv
+results/model_metrics*.txt
+results/shap_*.png
+results/shap_*.csv
