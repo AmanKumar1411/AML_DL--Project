@@ -1,0 +1,11 @@
+sector,product,sales_price,Probability
+services,MG Special,55.0,0.8521372312065063
+marketing,GTX Plus Basic,1096.0,0.8120383678657448
+software,GTX Plus Basic,1096.0,0.8045999155630965
+software,GTX Basic,550.0,0.8159677443456985
+retail,MG Advanced,3393.0,0.8263412677268202
+technolgy,GTXPro,1096.0,0.8182050594492909
+technolgy,GTX Basic,550.0,0.8804551854893821
+entertainment,GTX Plus Pro,5482.0,0.8240785375445387
+telecommunications,MG Special,55.0,0.8765055928207589
+medical,GTX Plus Pro,5482.0,0.8332447711273764

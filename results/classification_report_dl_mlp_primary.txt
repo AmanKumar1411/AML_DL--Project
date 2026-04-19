@@ -1,0 +1,9 @@
+Model: MLP (Primary)
+              precision    recall  f1-score   support
+
+           0     0.2941    0.0202    0.0378       495
+           1     0.6295    0.9717    0.7640       848
+
+    accuracy                         0.6210      1343
+   macro avg     0.4618    0.4960    0.4009      1343
+weighted avg     0.5059    0.6210    0.4964      1343
