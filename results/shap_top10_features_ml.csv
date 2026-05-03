@@ -1,0 +1,11 @@
+feature,mean_abs_shap
+num__log_employees,0.09501608355981876
+num__engage_year,0.08000397351553713
+num__year_established,0.0750741851250466
+num__log_revenue,0.057360591693466585
+num__revenue,0.03529310288508182
+num__engage_month,0.0340942208507278
+cat__office_location_Panama,0.023573974506873267
+cat__regional_office_Central,0.022321367145119734
+cat__product_MG Special,0.022150722541166498
+cat__product_GTX Plus Pro,0.02171584424484345

@@ -1,0 +1,20 @@
+- log_employees: higher values tend to decrease the model score.
+  Business view: this variable is a meaningful lever for qualification and deal prioritization.
+- engage_year: higher values tend to decrease the model score.
+  Business view: this variable is a meaningful lever for qualification and deal prioritization.
+- year_established: higher values tend to decrease the model score.
+  Business view: this variable is a meaningful lever for qualification and deal prioritization.
+- log_revenue: higher values tend to increase the model score.
+  Business view: this variable is a meaningful lever for qualification and deal prioritization.
+- revenue: higher values tend to decrease the model score.
+  Business view: this variable is a meaningful lever for qualification and deal prioritization.
+- engage_month: higher values tend to decrease the model score.
+  Business view: this variable is a meaningful lever for qualification and deal prioritization.
+- office_location_Panama: when this category is present, it tends to increase win probability.
+  Business view: this segment deserves tailored targeting and offer design.
+- regional_office_Central: when this category is present, it tends to decrease win probability.
+  Business view: this segment deserves tailored targeting and offer design.
+- product_MG Special: when this category is present, it tends to increase win probability.
+  Business view: this segment deserves tailored targeting and offer design.
+- product_GTX Plus Pro: when this category is present, it tends to increase win probability.
+  Business view: this segment deserves tailored targeting and offer design.

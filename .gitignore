@@ -1,18 +1,42 @@
+# Python environment
 venv/
-.DS_Store
+.venv/
+env/
+.env
+.Python
+
+# Python cache and compiled files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-.env
+*.egg-info/
+dist/
+build/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter notebook checkpoints
 .ipynb_checkpoints/
+
+# Project data directories
 data/
 models/
+
+# Documentation artifacts
 reports/presentation_slides.md
 reports/Project_Report.tex
 reports/DL-Report.tex
+reports/Viva_Master_Guide.md
 
 # LaTeX build artifacts (do not push)
 reports/*.aux
@@ -25,13 +49,3 @@ reports/*.fls
 reports/*.fdb_latexmk
 reports/*.synctex.gz
 
-# Generated modeling artifacts in results/ (do not push)
-results/*.txt
-results/*.csv
-results/classification_report_*.txt
-results/confusion_matrix_*.png
-results/error_analysis_*.png
-results/high_confidence_*.csv
-results/model_metrics*.txt
-results/shap_*.png
-results/shap_*.csv
