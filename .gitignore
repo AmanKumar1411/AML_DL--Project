@@ -48,4 +48,5 @@ reports/*.blg
 reports/*.fls
 reports/*.fdb_latexmk
 reports/*.synctex.gz
-
+reports/*tex
+reports/*md
