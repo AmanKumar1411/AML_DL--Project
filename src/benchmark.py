@@ -317,7 +317,7 @@ def evaluate_model(
     return pd.DataFrame(rows)
 
 
-def summarize(results: pd.DataFrame) -> pd.DataFrame:
+def summarize(results: pd.DataFrame, decimals: int | None = 4) -> pd.DataFrame:
     """Mean and sample std (ddof=1) across folds, per model, in run order."""
     grouped = results.groupby("model", sort=False)[METRICS]
     mean, std = grouped.mean(), grouped.std(ddof=1)
@@ -325,7 +325,8 @@ def summarize(results: pd.DataFrame) -> pd.DataFrame:
     for metric in METRICS:
         columns[f"{metric}_mean"] = mean[metric]
         columns[f"{metric}_std"] = std[metric]
-    return pd.DataFrame(columns).round(4).reset_index()
+    summary = pd.DataFrame(columns)
+    return (summary if decimals is None else summary.round(decimals)).reset_index()
 
 
 def check_sanity(results: pd.DataFrame, positive_rate: float) -> None:
@@ -475,7 +476,8 @@ def main(argv: list[str] | None = None) -> None:
     summary = summarize(results)
     results.to_csv(out, index=False)
     summary.to_csv(out.with_name(f"{out.stem}_summary.csv"), index=False)
-    plot_ladder(summary, out.parent / "figures" / f"{out.stem}_ladder.png", float(y.mean()), len(y))
+    # The chart uses unrounded means so its labels match tables rounded from the per-fold CSV.
+    plot_ladder(summarize(results, decimals=None), out.parent / "figures" / f"{out.stem}_ladder.png", float(y.mean()), len(y))
     print(summary[["model", "roc_auc_mean", "roc_auc_std", "pr_auc_mean", "pr_auc_std", "f1_at_05_mean"]].to_string(index=False))
 
 
