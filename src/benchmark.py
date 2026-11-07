@@ -2,7 +2,7 @@
 
 Scores the v1 models (LogReg, DualPathMLP, 40/60 Hybrid) with leak-free,
 stratified 5-fold cross-validation, between a floor (DummyClassifier) and a
-ceiling (TabPFN, or CatBoost as a clearly labelled fallback).
+ceiling (TabPFN), with CatBoost as a strong classical baseline.
 
 The v1 code is reused unchanged from ``src.phase3_pipeline``. Every
 preprocessing step is fit inside the training fold. Anything tuned (MLP early
@@ -231,10 +231,10 @@ class TabPFNCeiling:
         return self.model_.predict_proba(X)
 
 
-class CatBoostCeiling:
-    """Temporary ceiling if TabPFN is unavailable: CatBoost with default settings."""
+class CatBoostBaseline:
+    """Strong classical baseline: CatBoost with default settings (seed pinned)."""
 
-    def fit(self, X: pd.DataFrame, y: np.ndarray) -> "CatBoostCeiling":
+    def fit(self, X: pd.DataFrame, y: np.ndarray) -> "CatBoostBaseline":
         from catboost import CatBoostClassifier
 
         self.model_ = CatBoostClassifier(
@@ -253,9 +253,10 @@ MODELS: dict[str, tuple[str, Callable[[], ProbaClassifier]]] = {
     "logreg": ("LogReg v1", build_ml_model),
     "mlp": ("DualPathMLP v1", DualPathMLPV1),
     "hybrid": ("Hybrid v1", HybridV1),
+    "catboost": ("CatBoost (classical baseline)", CatBoostBaseline),
     "tabpfn": ("TabPFN (ceiling)", TabPFNCeiling),
-    "catboost": ("CatBoost (temporary ceiling)", CatBoostCeiling),
 }
+DEFAULT_MODELS = "dummy,logreg,mlp,hybrid,catboost,tabpfn"
 
 
 # --------------------------------------------------------------------------- evaluation
@@ -359,7 +360,16 @@ def check_v1_reproduction() -> None:
     print("v1 reproduction check passed.")
 
 
-def write_env(path: Path, ceiling: str) -> None:
+def _tabpfn_model_version() -> str | None:
+    """The TabPFN checkpoint version the package loads by default (e.g. 'v3.5')."""
+    try:
+        from tabpfn.settings import settings
+    except ImportError:
+        return None
+    return str(settings.tabpfn.model_version.value)
+
+
+def write_env(path: Path, models: list[str]) -> None:
     """Record versions and settings next to the results (no timestamp, so runs stay identical)."""
     packages = ["numpy", "pandas", "scikit-learn", "scipy", "matplotlib", "seaborn", "shap", "torch", "tabpfn", "catboost"]
     versions = {}
@@ -374,9 +384,9 @@ def write_env(path: Path, ceiling: str) -> None:
         "machine": platform.machine(),
         "seed": SEED,
         "n_folds": N_FOLDS,
-        "ceiling": ceiling,
+        "models": models,
         "tabpfn_device": "cpu",
-        "tabpfn_model_version": os.environ.get("TABPFN_MODEL_VERSION", "package default"),
+        "tabpfn_model_version": _tabpfn_model_version() if "tabpfn" in models else None,
         "TABPFN_ALLOW_CPU_LARGE_DATASET": os.environ.get("TABPFN_ALLOW_CPU_LARGE_DATASET"),
         "packages": versions,
     }
@@ -385,17 +395,26 @@ def write_env(path: Path, ceiling: str) -> None:
 
 # --------------------------------------------------------------------------- chart
 
-# Colours by role (floor / v1 / ceiling); ink and rules from the reference palette.
-FLOOR_COLOR, V1_COLOR, CEILING_COLOR = "#898781", "#2a78d6", "#eb6834"
+# Colours by role (floor / v1 / classical baseline / ceiling), validated with the
+# dataviz palette checker; ink and rules from the reference palette.
+FLOOR_COLOR, V1_COLOR, BASELINE_COLOR, CEILING_COLOR = "#898781", "#2a78d6", "#1baf7a", "#eb6834"
 INK, INK_SECONDARY, GRID, BASELINE, SURFACE = "#0b0b0b", "#52514e", "#e1e0d9", "#c3c2b7", "#fcfcfb"
 
 
+def _role_color(name: str) -> str:
+    if name == DUMMY_LABEL:
+        return FLOOR_COLOR
+    if "(ceiling)" in name:
+        return CEILING_COLOR
+    if "(classical baseline)" in name:
+        return BASELINE_COLOR
+    return V1_COLOR
+
+
 def plot_ladder(summary: pd.DataFrame, path: Path, positive_rate: float, n_rows: int) -> None:
-    """Horizontal bars of ROC-AUC and PR-AUC (mean ± std), floor -> v1 -> ceiling."""
+    """Horizontal bars of ROC-AUC and PR-AUC (mean ± std), floor -> v1 -> baseline -> ceiling."""
     names = summary["model"].tolist()
-    colors = [
-        FLOOR_COLOR if name == DUMMY_LABEL else CEILING_COLOR if "ceiling" in name else V1_COLOR for name in names
-    ]
+    colors = [_role_color(name) for name in names]
     y_pos = np.arange(len(names))
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 0.55 * len(names) + 1.9), sharey=True, facecolor=SURFACE)
@@ -446,10 +465,7 @@ def plot_ladder(summary: pd.DataFrame, path: Path, positive_rate: float, n_rows:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Phase 1 honest benchmark (leak-free 5-fold CV).")
     parser.add_argument("--out", type=Path, default=Path("results/benchmark_v1.csv"), help="per-fold results CSV")
-    parser.add_argument(
-        "--models", default="dummy,logreg,mlp,hybrid,ceiling", help="comma-separated: dummy,logreg,mlp,hybrid,ceiling"
-    )
-    parser.add_argument("--ceiling", choices=["tabpfn", "catboost"], default="tabpfn")
+    parser.add_argument("--models", default=DEFAULT_MODELS, help=f"comma-separated subset of: {DEFAULT_MODELS}")
     parser.add_argument("--check-v1", action="store_true", help="only reproduce v1's single-split numbers, then exit")
     args = parser.parse_args(argv)
 
@@ -459,13 +475,16 @@ def main(argv: list[str] | None = None) -> None:
 
     out = args.out if args.out.is_absolute() else PROJECT_ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
-    keys = [args.ceiling if key == "ceiling" else key for key in args.models.split(",")]
+    keys = [key.strip() for key in args.models.split(",")]
+    unknown = [key for key in keys if key not in MODELS]
+    if unknown:
+        parser.error(f"unknown model(s) {unknown}; choose from {DEFAULT_MODELS}")
 
     set_seeds()
     X, y, ids = load_xy()
     folds = make_folds(y)
     save_or_verify_folds(folds, ids, out.with_name(f"{out.stem}_folds.csv"))
-    write_env(out.with_name(f"{out.stem}_env.json"), args.ceiling)
+    write_env(out.with_name(f"{out.stem}_env.json"), keys)
     print(f"{len(y):,} rows, positive rate {y.mean():.4f}, {N_FOLDS} folds")
 
     results = pd.concat(
