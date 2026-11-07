@@ -40,7 +40,7 @@ predictive-sales project/
 │   ├── process_data.py              # Data preprocessing utilities
 │   └── phase3_pipeline.py           # Phase 3 implementation (900+ lines)
 ├── main.py                           # Single-command entry point
-├── Requirements.txt                  # Python dependencies
+├── requirements.txt                  # Python dependencies
 ├── .gitignore
 └── Readme.md
 ```
@@ -66,7 +66,7 @@ source .venv/bin/activate
 
 ```bash
 python -m pip install --upgrade pip setuptools wheel
-python -m pip install -r Requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 This installs:
@@ -205,7 +205,7 @@ Hybrid Probability = 0.4 × LogisticRegression_prob + 0.6 × DualPathMLP_prob
 
 ## Requirements
 
-See `Requirements.txt` for complete dependency list. Key packages:
+See `requirements.txt` for complete dependency list. Key packages:
 
 - numpy, pandas, scikit-learn, scipy
 - matplotlib, seaborn
