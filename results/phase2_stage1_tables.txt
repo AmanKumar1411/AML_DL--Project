@@ -1,0 +1,1141 @@
+6,711 closed deals, win rate 0.6315
+
+====================================================================================================
+1. Join audit: names in sales_pipeline.csv with no match in the lookup tables
+====================================================================================================
+deal_stage
+Won            4238
+Lost           2473
+Engaging       1589
+Prospecting     500
+
+product: 7 distinct in pipeline; NaN in all rows 0, in closed rows 0
+   UNMATCHED 'GTXPro': 1480 rows, 1147 closed
+   in lookup table but never used: ['GTX Pro']
+
+account: 85 distinct in pipeline; NaN in all rows 1425, in closed rows 0
+   no unmatched names
+   in lookup table but never used: []
+
+sales_agent: 30 distinct in pipeline; NaN in all rows 0, in closed rows 0
+   no unmatched names
+   in lookup table but never used: ['Carl Lin', 'Carol Thompson', 'Elizabeth Anderson', 'Mei-Mei Johns', 'Natalya Ivanova']
+
+sector values (note the consistent typo 'technolgy'): ['employment', 'entertainment', 'finance', 'marketing', 'medical', 'retail', 'services', 'software', 'technolgy', 'telecommunications']
+
+====================================================================================================
+2. engage_year: censoring / truncation check
+====================================================================================================
+engage_date 2016-10-20 .. 2017-12-27; close_date 2017-03-01 .. 2017-12-31
+
+Duration (days, close - engage) by outcome; diagnostic only, never a feature:
+             count  mean   std  min  25%   50%   75%    max
+deal_stage                                                 
+Lost        2473.0  41.5  40.0  1.0  7.0  14.0  79.0  138.0
+Won         4238.0  51.8  41.2  1.0  9.0  57.0  88.0  138.0
+
+By engage year:
+ engage_year  engaged  closed  open_share_dropped  win_rate  ci_lo  ci_hi flag
+        2016      358     305               0.148     0.820  0.773  0.859     
+        2017     7942    6406               0.193     0.623  0.611  0.634     
+
+By engage quarter:
+engage_quarter  engaged  closed  open_share_dropped  win_rate  ci_lo  ci_hi flag
+        2016Q4      358     305               0.148     0.820  0.773  0.859     
+        2017Q1     1619    1322               0.183     0.679  0.654  0.704     
+        2017Q2     2388    2022               0.153     0.616  0.595  0.637     
+        2017Q3     2770    2012               0.274     0.600  0.578  0.621     
+        2017Q4     1165    1050               0.099     0.607  0.577  0.636     
+
+By engage month:
+engage_month  engaged  closed  open_share_dropped  win_rate  ci_lo  ci_hi      flag
+     2016-10        7       7               0.000     1.000  0.646  1.000 too small
+     2016-11      115     102               0.113     0.814  0.727  0.877          
+     2016-12      236     196               0.169     0.816  0.756  0.864          
+     2017-01      312     247               0.208     0.733  0.674  0.784          
+     2017-02      515     420               0.184     0.660  0.613  0.703          
+     2017-03      792     655               0.173     0.672  0.635  0.707          
+     2017-04      874     753               0.138     0.567  0.531  0.602          
+     2017-05      722     588               0.186     0.622  0.583  0.661          
+     2017-06      792     681               0.140     0.665  0.629  0.700          
+     2017-07     1198     796               0.336     0.554  0.519  0.588          
+     2017-08      793     539               0.320     0.633  0.591  0.672          
+     2017-09      779     677               0.131     0.628  0.591  0.663          
+     2017-10      761     703               0.076     0.569  0.532  0.605          
+     2017-11      283     244               0.138     0.643  0.582  0.701          
+     2017-12      121     103               0.149     0.777  0.687  0.846          
+
+Engaged before 2017-03-01 (first close date): n=972, win 0.728, min duration 5 days; engaged on/after: n=5739, win 0.615
+
+====================================================================================================
+2b. Within-quarter calendar pattern (engage-time information)
+====================================================================================================
+                   mean               size          
+month_in_quarter      1      2      3    1    2    3
+engage_date                                         
+2016Q4            1.000  0.814  0.816    7  102  196
+2017Q1            0.733  0.660  0.672  247  420  655
+2017Q2            0.567  0.622  0.665  753  588  681
+2017Q3            0.554  0.633  0.628  796  539  677
+2017Q4            0.569  0.643  0.777  703  244  103
+
+Win rate by days to quarter end (7-day bins):
+                      mean  size
+days_to_quarter_end             
+(-1, 6]              0.584   586
+(6, 13]              0.661   502
+(13, 20]             0.736   512
+(20, 27]             0.708   517
+(27, 34]             0.726   540
+(34, 41]             0.692   464
+(41, 48]             0.604   419
+(48, 55]             0.586   425
+(55, 62]             0.649   368
+(62, 69]             0.601   461
+(69, 76]             0.580   641
+(76, 83]             0.557   591
+(83, 90]             0.569   620
+(90, 97]             0.554    65
+
+Pooled over all quarters:
+   month_in_quarter: 1: 0.581 (n=2506), 2: 0.647 (n=1893), 3: 0.674 (n=2312)
+   engage_month: 1: 0.733 (n=247), 2: 0.660 (n=420), 3: 0.672 (n=655), 4: 0.567 (n=753), 5: 0.622 (n=588), 6: 0.665 (n=681), 7: 0.554 (n=796), 8: 0.633 (n=539), 9: 0.628 (n=677), 10: 0.573 (n=710), 11: 0.694 (n=346), 12: 0.803 (n=299)
+
+Trimmed rows only (engaged 2017-03-01 .. 2017-11-30, n=5636): win rate by month in quarter 1: 0.563 (n=2252), 2: 0.630 (n=1371), 3: 0.655 (n=2013)
+
+Could dropping open deals create the gradient? Dropped open share and worst-case bounds per (quarter, month):
+                          engaged  closed  won  dropped_open_share  win_rate_closed  win_if_all_open_lost  win_if_all_open_won
+quarter month_in_quarter                                                                                                      
+2016Q4  1                       7       7    7               0.000            1.000                 1.000                1.000
+        2                     115     102   83               0.113            0.814                 0.722                0.835
+        3                     236     196  160               0.169            0.816                 0.678                0.847
+2017Q1  1                     312     247  181               0.208            0.733                 0.580                0.788
+        2                     515     420  277               0.184            0.660                 0.538                0.722
+        3                     792     655  440               0.173            0.672                 0.556                0.729
+2017Q2  1                     874     753  427               0.138            0.567                 0.489                0.627
+        2                     722     588  366               0.186            0.622                 0.507                0.693
+        3                     792     681  453               0.140            0.665                 0.572                0.712
+2017Q3  1                    1198     796  441               0.336            0.554                 0.368                0.704
+        2                     793     539  341               0.320            0.633                 0.430                0.750
+        3                     779     677  425               0.131            0.628                 0.546                0.677
+2017Q4  1                     761     703  400               0.076            0.569                 0.526                0.602
+        2                     283     244  157               0.138            0.643                 0.555                0.693
+        3                     121     103   80               0.149            0.777                 0.661                0.810
+
+December 2017: n=103, win 0.777; median duration won 9 / lost 14 days. For comparison, post-window deals closed within 30 days win 0.570 (n=3100), so 'only fast closers are observed' does NOT explain the bump.
+
+Old 'quarter-end flag' (last 14 days of the quarter):
+                      mean  size
+days_to_quarter_end             
+False                0.634  5623
+True                 0.619  1088
+
+====================================================================================================
+3. Candidate signals: win rate, n, 95% Wilson CI (n < 30 marked 'too small'), chi2 heterogeneity
+====================================================================================================
+
+--- sales_agent: 30 levels; chi2=33.3, dof=29, p=0.264; levels with n<30: 0 (0 rows)
+       sales_agent   n  win_rate  ci_lo  ci_hi flag
+     Hayden Neloms 152     0.704  0.627  0.771     
+   Maureen Marcano 213     0.700  0.635  0.757     
+    Wilburn Farren  79     0.696  0.588  0.787     
+    Cecily Lampkin 160     0.669  0.593  0.737     
+ Versie Hillebrand 264     0.667  0.608  0.721     
+       Moses Frase 195     0.662  0.593  0.724     
+         Boris Faz 153     0.660  0.582  0.730     
+    James Ascencio 206     0.655  0.588  0.717     
+     Corliss Cosme 229     0.655  0.591  0.714     
+   Rosalina Dieter 110     0.655  0.562  0.737     
+      Reed Clapper 237     0.654  0.591  0.712     
+Jonathan Berthelot 264     0.648  0.588  0.703     
+Rosie Papadopoulos 121     0.645  0.556  0.724     
+     Kami Bicknell 272     0.640  0.581  0.694     
+    Vicki Laflamme 347     0.637  0.585  0.686     
+      Elease Gluck 126     0.635  0.548  0.714     
+  Violet Mclelland 193     0.632  0.562  0.697     
+   Darcel Schlecht 553     0.631  0.590  0.670     
+ Marty Freudenburg 194     0.629  0.559  0.694     
+      Cassey Cress 261     0.625  0.564  0.681     
+   Kary Hendrixson 335     0.624  0.571  0.674     
+     Anna Snelling 336     0.619  0.566  0.669     
+         Zane Levy 261     0.617  0.557  0.674     
+     Garret Kinder 123     0.610  0.521  0.691     
+   Daniell Hammack 187     0.610  0.538  0.677     
+   Niesha Huffines 175     0.600  0.526  0.670     
+  Gladys Colclough 232     0.582  0.518  0.644     
+     Donn Cantrell 275     0.575  0.515  0.632     
+    Markita Hansen 227     0.573  0.508  0.635     
+   Lajuana Vencill 231     0.550  0.485  0.613     
+
+--- manager: 6 levels; chi2=2.4, dof=5, p=0.786; levels with n<30: 0 (0 rows)
+         manager    n  win_rate  ci_lo  ci_hi flag
+      Cara Losch  745     0.644  0.609  0.678     
+   Summer Sewald 1287     0.643  0.617  0.669     
+    Celia Rouche  962     0.634  0.603  0.664     
+Dustin Brinkmann 1186     0.630  0.602  0.657     
+   Melvin Marxen 1418     0.622  0.596  0.647     
+   Rocco Neubert 1113     0.621  0.592  0.649     
+
+--- regional_office: 3 levels; chi2=1.0, dof=2, p=0.604; levels with n<30: 0 (0 rows)
+regional_office    n  win_rate  ci_lo  ci_hi flag
+           West 2249     0.639  0.619  0.659     
+           East 1858     0.630  0.608  0.652     
+        Central 2604     0.626  0.607  0.644     
+
+--- product: 7 levels; chi2=6.5, dof=6, p=0.372; levels with n<30: 1 (25 rows)
+       product    n  win_rate  ci_lo  ci_hi      flag
+    MG Special 1223     0.648  0.621  0.675          
+  GTX Plus Pro  745     0.643  0.608  0.677          
+     GTX Basic 1436     0.637  0.612  0.662          
+       GTX Pro 1147     0.636  0.607  0.663          
+GTX Plus Basic 1051     0.621  0.592  0.650          
+   MG Advanced 1084     0.603  0.574  0.632          
+       GTK 500   25     0.600  0.407  0.766 too small
+
+--- account: 85 levels; chi2=64.6, dof=84, p=0.943; levels with n<30: 0 (0 rows)
+                     account   n  win_rate  ci_lo  ci_hi flag
+                    Rangreen 100     0.750  0.657  0.825     
+                  Goodsilron  88     0.739  0.638  0.819     
+                       Newex  51     0.725  0.591  0.829     
+                   Plusstrip  46     0.717  0.575  0.827     
+                      Zoomit  46     0.717  0.575  0.827     
+                 Donquadtech  77     0.714  0.605  0.803     
+                  Gekko & Co  85     0.706  0.602  0.792     
+              Dalttechnology  61     0.705  0.581  0.804     
+                      Finjob  81     0.704  0.597  0.792     
+                    Gogozoom  73     0.699  0.586  0.792     
+                   Warephase 101     0.693  0.597  0.775     
+                Singletechno 104     0.692  0.598  0.773     
+                  Stanredtax 100     0.690  0.594  0.772     
+              Zencorporation  48     0.688  0.547  0.801     
+                     J-Texon  73     0.685  0.571  0.780     
+                    Scotfind  98     0.684  0.586  0.767     
+                       Inity 100     0.680  0.583  0.763     
+                     Domzoom  78     0.679  0.570  0.773     
+                   Rundofase  96     0.677  0.578  0.762     
+                     Bioplex  46     0.674  0.530  0.791     
+                     Zotware  70     0.671  0.555  0.770     
+                  Bubba Gump  54     0.667  0.534  0.778     
+                  Sunnamplex  68     0.662  0.543  0.763     
+                      Condax 159     0.660  0.584  0.729     
+                 Iselectrics  38     0.658  0.499  0.788     
+                   Konmatfix  64     0.656  0.534  0.761     
+                    Ron-tech 107     0.654  0.560  0.738     
+                  Zathunicon  52     0.654  0.518  0.768     
+                    Labdrill  71     0.648  0.532  0.749     
+                  Kinnamplus  62     0.645  0.521  0.753     
+             Massive Dynamic  59     0.644  0.517  0.754     
+                      Yearin  56     0.643  0.512  0.755     
+                   Mathtouch  81     0.642  0.533  0.738     
+                Groovestreet  55     0.636  0.504  0.751     
+       The New York Inquirer  44     0.636  0.489  0.762     
+               Y-corporation  85     0.635  0.529  0.730     
+                     Plexzap  74     0.635  0.521  0.736     
+                      Cheers  90     0.633  0.530  0.726     
+                       Konex 171     0.632  0.557  0.700     
+                    Zumgoity  57     0.632  0.502  0.745     
+                    Faxquote  76     0.632  0.519  0.731     
+                      Sonron  73     0.630  0.515  0.732     
+                  Betasoloin  54     0.630  0.496  0.746     
+                    Scottech  77     0.623  0.512  0.723     
+        Umbrella Corporation  77     0.623  0.512  0.723     
+Genco Pura Olive Oil Company  87     0.621  0.516  0.715     
+                    Toughzap  63     0.619  0.496  0.729     
+                    Betatech  86     0.616  0.511  0.712     
+                     Nam-zim  52     0.615  0.480  0.735     
+                     Codehow 117     0.615  0.525  0.699     
+                    Kan-code 187     0.615  0.544  0.682     
+                     Conecom  88     0.614  0.509  0.709     
+                   Ganjaflex  75     0.613  0.500  0.715     
+                   Treequote 106     0.613  0.518  0.700     
+                  Xx-holding  79     0.608  0.497  0.708     
+                   Ontomedia  56     0.607  0.476  0.724     
+                   Streethex 104     0.606  0.510  0.694     
+                  Fasehatice  81     0.605  0.496  0.704     
+                   Plussunin  91     0.604  0.502  0.699     
+                    Opentech  50     0.600  0.462  0.724     
+                    Dontechi 117     0.598  0.508  0.683     
+   Vehement Capital Partners  57     0.596  0.467  0.714     
+                  Funholding  99     0.596  0.497  0.687     
+                     dambase  91     0.593  0.491  0.689     
+                     Cancity  93     0.591  0.490  0.686     
+                  Lexiqvolax  66     0.591  0.470  0.701     
+                      Doncon  56     0.589  0.459  0.708     
+                  Bioholding  85     0.588  0.482  0.687     
+          Globex Corporation  85     0.588  0.482  0.687     
+                     Initech  63     0.587  0.464  0.700     
+            Acme Corporation  58     0.586  0.458  0.704     
+                    Rantouch  65     0.585  0.463  0.696     
+               Bluth Company  48     0.583  0.443  0.712     
+                     Finhigh  93     0.581  0.479  0.676     
+                       Isdom 112     0.580  0.488  0.668     
+                    Blackzim  71     0.577  0.462  0.685     
+                    Hottechi 193     0.575  0.505  0.643     
+                  Green-Plus  72     0.569  0.454  0.677     
+                     Golddex  58     0.569  0.441  0.688     
+                      Hatfan  76     0.566  0.454  0.671     
+                      Sumace  41     0.561  0.410  0.701     
+                     Donware  54     0.556  0.424  0.680     
+                       Silis  63     0.556  0.433  0.672     
+                    Xx-zobam  83     0.554  0.447  0.656     
+                Statholdings  64     0.531  0.411  0.648     
+
+--- sector: 10 levels; chi2=2.8, dof=9, p=0.971; levels with n<30: 0 (0 rows)
+            sector    n  win_rate  ci_lo  ci_hi flag
+         marketing  623     0.648  0.610  0.685     
+     entertainment  402     0.647  0.599  0.692     
+          software  704     0.639  0.603  0.674     
+         technolgy 1058     0.634  0.605  0.663     
+          services  352     0.634  0.582  0.682     
+            retail 1267     0.631  0.604  0.657     
+        employment  286     0.626  0.568  0.680     
+telecommunications  456     0.625  0.580  0.668     
+           medical  950     0.623  0.592  0.653     
+           finance  613     0.612  0.573  0.650     
+
+--- office_location: 15 levels; chi2=14.4, dof=14, p=0.419; levels with n<30: 0 (0 rows)
+office_location    n  win_rate  ci_lo  ci_hi flag
+         Panama  100     0.750  0.657  0.825     
+        Germany   51     0.725  0.591  0.829     
+          China   48     0.688  0.547  0.801     
+         Poland   68     0.662  0.543  0.763     
+         Jordan   81     0.642  0.533  0.738     
+  United States 5555     0.633  0.620  0.645     
+          Italy   87     0.621  0.516  0.715     
+          Kenya   86     0.616  0.511  0.712     
+         Brazil   52     0.615  0.480  0.735     
+          Japan   75     0.613  0.500  0.715     
+        Belgium  104     0.606  0.510  0.694     
+         Norway   85     0.588  0.482  0.687     
+     Philipines   85     0.588  0.482  0.687     
+          Korea  193     0.575  0.505  0.643     
+        Romania   41     0.561  0.410  0.701     
+
+--- agent_x_product: 178 levels; chi2=191.4, dof=177, p=0.217; levels with n<30: 89 (1541 rows)
+                    agent_x_product   n  win_rate  ci_lo  ci_hi      flag
+    Wilburn Farren | GTX Plus Basic   3     1.000  0.438  1.000 too small
+       Hayden Neloms | GTX Plus Pro  10     0.900  0.596  0.982 too small
+          Rosalina Dieter | GTX Pro   7     0.857  0.487  0.974 too small
+       Kami Bicknell | GTX Plus Pro  18     0.833  0.608  0.942 too small
+          Rosalina Dieter | GTK 500   6     0.833  0.436  0.970 too small
+     Maureen Marcano | GTX Plus Pro  32     0.812  0.647  0.911          
+           Elease Gluck | GTX Basic  16     0.812  0.570  0.934 too small
+    Jonathan Berthelot | MG Special  26     0.808  0.621  0.915 too small
+       Rosie Papadopoulos | GTX Pro  31     0.806  0.637  0.908          
+             Elease Gluck | GTX Pro  10     0.800  0.490  0.943 too small
+     Niesha Huffines | GTX Plus Pro  15     0.800  0.548  0.930 too small
+    Cecily Lampkin | GTX Plus Basic  20     0.800  0.584  0.919 too small
+   Rosalina Dieter | GTX Plus Basic   5     0.800  0.376  0.964 too small
+            Moses Frase | GTX Basic  59     0.797  0.677  0.880          
+       Corliss Cosme | GTX Plus Pro  38     0.789  0.637  0.889          
+          Reed Clapper | MG Special  19     0.789  0.567  0.915 too small
+     Rosie Papadopoulos | GTX Basic   9     0.778  0.453  0.937 too small
+          Maureen Marcano | GTX Pro  30     0.767  0.591  0.882          
+        Hayden Neloms | MG Advanced  77     0.766  0.660  0.847          
+         Wilburn Farren | GTX Basic  12     0.750  0.468  0.911 too small
+       James Ascencio | MG Advanced  16     0.750  0.505  0.898 too small
+         Kami Bicknell | MG Special  28     0.750  0.566  0.873 too small
+   Maureen Marcano | GTX Plus Basic  70     0.743  0.630  0.831          
+     Marty Freudenburg | MG Special  23     0.739  0.535  0.875 too small
+                Boris Faz | GTX Pro  23     0.739  0.535  0.875 too small
+         Hayden Neloms | MG Special  23     0.739  0.535  0.875 too small
+        Garret Kinder | MG Advanced  22     0.727  0.518  0.868 too small
+       Wilburn Farren | MG Advanced  29     0.724  0.543  0.853 too small
+   Marty Freudenburg | GTX Plus Pro  32     0.719  0.546  0.844          
+             Cassey Cress | GTX Pro  53     0.717  0.584  0.820          
+      Elease Gluck | GTX Plus Basic   7     0.714  0.359  0.918 too small
+   Versie Hillebrand | GTX Plus Pro  21     0.714  0.500  0.862 too small
+         Anna Snelling | MG Special 144     0.708  0.629  0.776          
+       Moses Frase | GTX Plus Basic  24     0.708  0.508  0.851 too small
+      Niesha Huffines | MG Advanced  17     0.706  0.469  0.867 too small
+     Darcel Schlecht | GTX Plus Pro  47     0.702  0.560  0.813          
+          Daniell Hammack | GTX Pro  57     0.702  0.573  0.805          
+      Rosalina Dieter | MG Advanced  23     0.696  0.491  0.844 too small
+     Versie Hillebrand | MG Special 169     0.692  0.619  0.757          
+        Kami Bicknell | MG Advanced  26     0.692  0.500  0.835 too small
+           Wilburn Farren | GTX Pro  13     0.692  0.424  0.873 too small
+        James Ascencio | MG Special  16     0.688  0.444  0.858 too small
+      James Ascencio | GTX Plus Pro  64     0.688  0.566  0.788          
+         Corliss Cosme | MG Special  16     0.688  0.444  0.858 too small
+    Vicki Laflamme | GTX Plus Basic  19     0.684  0.460  0.846 too small
+        Darcel Schlecht | GTX Basic  53     0.679  0.545  0.789          
+           Vicki Laflamme | GTX Pro  59     0.678  0.551  0.783          
+   Darcel Schlecht | GTX Plus Basic  83     0.675  0.568  0.766          
+         Vicki Laflamme | GTX Basic  83     0.675  0.568  0.766          
+            Corliss Cosme | GTX Pro  55     0.673  0.541  0.782          
+                Zane Levy | GTX Pro  69     0.667  0.549  0.766          
+         Boris Faz | GTX Plus Basic  42     0.667  0.516  0.790          
+          Cassey Cress | MG Special  15     0.667  0.417  0.848 too small
+         Cecily Lampkin | GTX Basic  24     0.667  0.467  0.820 too small
+          Corliss Cosme | GTX Basic  54     0.667  0.534  0.778          
+         Garret Kinder | MG Special  15     0.667  0.417  0.848 too small
+      Reed Clapper | GTX Plus Basic  42     0.667  0.516  0.790          
+     Garret Kinder | GTX Plus Basic  12     0.667  0.391  0.862 too small
+             Reed Clapper | GTX Pro  63     0.667  0.544  0.771          
+     Daniell Hammack | GTX Plus Pro  27     0.667  0.478  0.814 too small
+        Rosalina Dieter | GTX Basic  15     0.667  0.417  0.848 too small
+        Donn Cantrell | MG Advanced  48     0.667  0.525  0.783          
+       Cecily Lampkin | MG Advanced  50     0.660  0.522  0.776          
+      Violet Mclelland | MG Special 108     0.657  0.564  0.740          
+          Kami Bicknell | GTX Basic 108     0.657  0.564  0.740          
+           Zane Levy | GTX Plus Pro  32     0.656  0.483  0.796          
+     Violet Mclelland | MG Advanced  29     0.655  0.473  0.801 too small
+       Kary Hendrixson | MG Special  29     0.655  0.473  0.801 too small
+      Marty Freudenburg | GTX Basic  26     0.654  0.462  0.806 too small
+              Boris Faz | GTX Basic  26     0.654  0.462  0.806 too small
+       Maureen Marcano | MG Special  23     0.652  0.449  0.812 too small
+       Darcel Schlecht | MG Special  43     0.651  0.502  0.776          
+      Versie Hillebrand | GTX Basic  20     0.650  0.433  0.819 too small
+            Garret Kinder | GTX Pro  20     0.650  0.433  0.819 too small
+          Kary Hendrixson | GTX Pro  77     0.649  0.538  0.747          
+           Reed Clapper | GTX Basic  37     0.649  0.488  0.782          
+   Niesha Huffines | GTX Plus Basic  54     0.648  0.515  0.762          
+          Elease Gluck | MG Special  51     0.647  0.510  0.764          
+       Jonathan Berthelot | GTX Pro  48     0.646  0.504  0.766          
+     Jonathan Berthelot | GTX Basic 110     0.645  0.553  0.729          
+     Kary Hendrixson | GTX Plus Pro  31     0.645  0.469  0.789          
+             Boris Faz | MG Special  14     0.643  0.388  0.837 too small
+        Cecily Lampkin | MG Special  39     0.641  0.484  0.773          
+        Vicki Laflamme | MG Special  80     0.638  0.528  0.734          
+         Reed Clapper | MG Advanced  44     0.636  0.489  0.762          
+        Wilburn Farren | MG Special  11     0.636  0.354  0.848 too small
+        Kary Hendrixson | GTX Basic 129     0.636  0.550  0.714          
+            Boris Faz | MG Advanced  19     0.632  0.410  0.809 too small
+         James Ascencio | GTX Basic  54     0.630  0.496  0.746          
+Jonathan Berthelot | GTX Plus Basic  54     0.630  0.496  0.746          
+      Cecily Lampkin | GTX Plus Pro  27     0.630  0.442  0.785 too small
+          Anna Snelling | GTX Basic  51     0.627  0.490  0.747          
+ Marty Freudenburg | GTX Plus Basic  56     0.625  0.494  0.740          
+  Jonathan Berthelot | GTX Plus Pro   8     0.625  0.306  0.863 too small
+        Marty Freudenburg | GTX Pro  16     0.625  0.386  0.815 too small
+     Gladys Colclough | MG Advanced  53     0.623  0.488  0.741          
+           Boris Faz | GTX Plus Pro  29     0.621  0.440  0.773 too small
+  Gladys Colclough | GTX Plus Basic  29     0.621  0.440  0.773 too small
+          Moses Frase | MG Advanced  42     0.619  0.468  0.750          
+         Markita Hansen | GTX Basic  47     0.617  0.474  0.742          
+     Corliss Cosme | GTX Plus Basic  44     0.614  0.466  0.743          
+      Gladys Colclough | MG Special  49     0.612  0.472  0.736          
+        Daniell Hammack | GTX Basic  18     0.611  0.386  0.797 too small
+    James Ascencio | GTX Plus Basic  23     0.609  0.408  0.778 too small
+          Donn Cantrell | GTX Basic  74     0.608  0.494  0.711          
+              Zane Levy | GTX Basic  79     0.608  0.497  0.708          
+    Rosie Papadopoulos | MG Special  33     0.606  0.437  0.753          
+           James Ascencio | GTX Pro  33     0.606  0.437  0.753          
+      Cassey Cress | GTX Plus Basic  43     0.605  0.456  0.736          
+         Zane Levy | GTX Plus Basic  43     0.605  0.456  0.736          
+          Darcel Schlecht | GTX Pro 265     0.604  0.544  0.661          
+        Niesha Huffines | GTX Basic  53     0.604  0.469  0.724          
+           Cassey Cress | GTX Basic  58     0.603  0.475  0.719          
+         Cassey Cress | MG Advanced  60     0.600  0.474  0.714          
+       Violet Mclelland | GTX Basic  25     0.600  0.407  0.766 too small
+   Lajuana Vencill | GTX Plus Basic  25     0.600  0.407  0.766 too small
+       Daniell Hammack | MG Special  10     0.600  0.313  0.832 too small
+       Markita Hansen | MG Advanced  40     0.600  0.446  0.737          
+           Markita Hansen | GTK 500   5     0.600  0.231  0.882 too small
+           Markita Hansen | GTX Pro  30     0.600  0.423  0.754          
+      Vicki Laflamme | GTX Plus Pro  27     0.593  0.407  0.755 too small
+      Darcel Schlecht | MG Advanced  61     0.590  0.465  0.705          
+   Kary Hendrixson | GTX Plus Basic  51     0.588  0.452  0.712          
+  Violet Mclelland | GTX Plus Basic  17     0.588  0.360  0.784 too small
+      Maureen Marcano | MG Advanced  17     0.588  0.360  0.784 too small
+     Lajuana Vencill | GTX Plus Pro  17     0.588  0.360  0.784 too small
+    Versie Hillebrand | MG Advanced  46     0.587  0.443  0.717          
+   Daniell Hammack | GTX Plus Basic  53     0.585  0.451  0.707          
+             Elease Gluck | GTK 500  12     0.583  0.320  0.807 too small
+       Anna Snelling | GTX Plus Pro  48     0.583  0.443  0.712          
+       Rosalina Dieter | MG Special  52     0.577  0.442  0.701          
+        Lajuana Vencill | GTX Basic  98     0.571  0.473  0.665          
+       Vicki Laflamme | MG Advanced  79     0.570  0.460  0.673          
+    Markita Hansen | GTX Plus Basic  37     0.568  0.409  0.713          
+       Donn Cantrell | GTX Plus Pro  30     0.567  0.392  0.726          
+           Moses Frase | MG Special  46     0.565  0.422  0.698          
+        Cassey Cress | GTX Plus Pro  32     0.562  0.393  0.718          
+        Reed Clapper | GTX Plus Pro  32     0.562  0.393  0.718          
+        Maureen Marcano | GTX Basic  41     0.561  0.410  0.701          
+    Gladys Colclough | GTX Plus Pro  25     0.560  0.371  0.733 too small
+            Zane Levy | MG Advanced  18     0.556  0.337  0.754 too small
+  Rosie Papadopoulos | GTX Plus Pro  18     0.556  0.337  0.754 too small
+         Violet Mclelland | GTX Pro   9     0.556  0.267  0.811 too small
+            Donn Cantrell | GTX Pro  73     0.548  0.434  0.657          
+            Kami Bicknell | GTX Pro  42     0.548  0.399  0.688          
+      Wilburn Farren | GTX Plus Pro  11     0.545  0.280  0.787 too small
+       Niesha Huffines | MG Special  22     0.545  0.347  0.731 too small
+         Moses Frase | GTX Plus Pro  24     0.542  0.351  0.721 too small
+         Elease Gluck | MG Advanced  24     0.542  0.351  0.721 too small
+   Rosie Papadopoulos | MG Advanced  24     0.542  0.351  0.721 too small
+       Gladys Colclough | GTX Basic  26     0.538  0.355  0.712 too small
+     Hayden Neloms | GTX Plus Basic  42     0.524  0.377  0.666          
+       Garret Kinder | GTX Plus Pro  23     0.522  0.330  0.708 too small
+     Anna Snelling | GTX Plus Basic  48     0.521  0.383  0.655          
+     Kami Bicknell | GTX Plus Basic  50     0.520  0.385  0.652          
+         Gladys Colclough | GTX Pro  50     0.520  0.385  0.652          
+        Markita Hansen | MG Special  54     0.519  0.389  0.646          
+          Garret Kinder | GTX Basic  31     0.516  0.348  0.680          
+     Donn Cantrell | GTX Plus Basic  41     0.512  0.365  0.657          
+      Lajuana Vencill | MG Advanced  55     0.509  0.381  0.636          
+             Zane Levy | MG Special  20     0.500  0.299  0.701 too small
+       Lajuana Vencill | MG Special  36     0.500  0.345  0.655          
+      Markita Hansen | GTX Plus Pro  14     0.500  0.268  0.732 too small
+ Versie Hillebrand | GTX Plus Basic   8     0.500  0.215  0.785 too small
+Rosie Papadopoulos | GTX Plus Basic   6     0.500  0.188  0.812 too small
+     Rosalina Dieter | GTX Plus Pro   2     0.500  0.095  0.905 too small
+   Jonathan Berthelot | MG Advanced  18     0.500  0.290  0.710 too small
+    Marty Freudenburg | MG Advanced  41     0.488  0.343  0.635          
+        Anna Snelling | MG Advanced  45     0.467  0.329  0.609          
+      Kary Hendrixson | MG Advanced  18     0.444  0.246  0.663 too small
+        Corliss Cosme | MG Advanced  21     0.429  0.245  0.635 too small
+    Violet Mclelland | GTX Plus Pro   5     0.400  0.118  0.769 too small
+      Daniell Hammack | MG Advanced  22     0.364  0.197  0.570 too small
+         Donn Cantrell | MG Special   9     0.333  0.121  0.646 too small
+        Elease Gluck | GTX Plus Pro   6     0.167  0.030  0.564 too small
+          Niesha Huffines | GTX Pro  14     0.143  0.040  0.399 too small
+            Corliss Cosme | GTK 500   1     0.000  0.000  0.793 too small
+          Darcel Schlecht | GTK 500   1     0.000  0.000  0.793 too small
+
+--- account_x_product: 525 levels; chi2=501.4, dof=524, p=0.754; levels with n<30: 512 (6228 rows)
+                            account_x_product  n  win_rate  ci_lo  ci_hi      flag
+                     Bioplex | GTX Plus Basic  4     1.000  0.510  1.000 too small
+                            Plexzap | GTK 500  1     1.000  0.207  1.000 too small
+                           Yearin | GTX Basic  8     1.000  0.676  1.000 too small
+                        Cheers | GTX Plus Pro  5     1.000  0.566  1.000 too small
+                         Lexiqvolax | GTK 500  1     1.000  0.207  1.000 too small
+  Genco Pura Olive Oil Company | GTX Plus Pro  6     1.000  0.610  1.000 too small
+               Bluth Company | GTX Plus Basic  6     1.000  0.610  1.000 too small
+                           Blackzim | GTX Pro  5     1.000  0.566  1.000 too small
+                             Zoomit | GTK 500  1     1.000  0.207  1.000 too small
+                      Stanredtax | MG Special 18     1.000  0.824  1.000 too small
+                           Labdrill | GTK 500  1     1.000  0.207  1.000 too small
+                      Plusstrip | MG Advanced  5     1.000  0.566  1.000 too small
+                        Finjob | GTX Plus Pro  1     1.000  0.207  1.000 too small
+                       Groovestreet | GTK 500  1     1.000  0.207  1.000 too small
+                             Finjob | GTK 500  1     1.000  0.207  1.000 too small
+                        J-Texon | MG Advanced 10     1.000  0.722  1.000 too small
+                      Y-corporation | GTK 500  1     1.000  0.207  1.000 too small
+                  Groovestreet | GTX Plus Pro  4     1.000  0.510  1.000 too small
+       The New York Inquirer | GTX Plus Basic  3     1.000  0.438  1.000 too small
+                         Zotware | MG Special  4     1.000  0.510  1.000 too small
+                         Doncon | MG Advanced  4     1.000  0.510  1.000 too small
+                           Rantouch | GTK 500  1     1.000  0.207  1.000 too small
+                      Ron-tech | GTX Plus Pro  3     1.000  0.438  1.000 too small
+                      Opentech | GTX Plus Pro  5     1.000  0.566  1.000 too small
+                         Bubba Gump | GTX Pro 12     0.917  0.646  0.985 too small
+                    Lexiqvolax | GTX Plus Pro 11     0.909  0.623  0.984 too small
+                    Zumgoity | GTX Plus Basic 11     0.909  0.623  0.984 too small
+                         Sunnamplex | GTX Pro 11     0.909  0.623  0.984 too small
+                        Rantouch | MG Special 10     0.900  0.596  0.982 too small
+                      Scotfind | GTX Plus Pro 10     0.900  0.596  0.982 too small
+                     Donquadtech | MG Special 10     0.900  0.596  0.982 too small
+                        Donquadtech | GTX Pro 18     0.889  0.672  0.969 too small
+                          Codehow | GTX Basic 17     0.882  0.657  0.967 too small
+                     Plusstrip | GTX Plus Pro  8     0.875  0.529  0.978 too small
+                    Stanredtax | GTX Plus Pro  8     0.875  0.529  0.978 too small
+                      Faxquote | GTX Plus Pro  8     0.875  0.529  0.978 too small
+                    Rangreen | GTX Plus Basic 15     0.867  0.621  0.963 too small
+                   Singletechno | MG Advanced 15     0.867  0.621  0.963 too small
+                           Silis | MG Special  7     0.857  0.487  0.974 too small
+                   Iselectrics | GTX Plus Pro  7     0.857  0.487  0.974 too small
+                          Finjob | MG Special 14     0.857  0.601  0.960 too small
+                      Bubba Gump | MG Special  7     0.857  0.487  0.974 too small
+                        Donware | MG Advanced  7     0.857  0.487  0.974 too small
+                      Zoomit | GTX Plus Basic  7     0.857  0.487  0.974 too small
+                         Rangreen | GTX Basic 20     0.850  0.640  0.948 too small
+                       Gekko & Co | GTX Basic 13     0.846  0.578  0.957 too small
+                            Newex | GTX Basic 12     0.833  0.552  0.953 too small
+                          Cheers | MG Special  6     0.833  0.436  0.970 too small
+                       Ontomedia | MG Special  6     0.833  0.436  0.970 too small
+                        Plusstrip | GTX Basic  6     0.833  0.436  0.970 too small
+                        Doncon | GTX Plus Pro  6     0.833  0.436  0.970 too small
+                  Kinnamplus | GTX Plus Basic  6     0.833  0.436  0.970 too small
+                    Scottech | GTX Plus Basic 12     0.833  0.552  0.953 too small
+                    Zathunicon | GTX Plus Pro  6     0.833  0.436  0.970 too small
+                  Zencorporation | MG Special  6     0.833  0.436  0.970 too small
+                       dambase | GTX Plus Pro 12     0.833  0.552  0.953 too small
+               Acme Corporation | MG Advanced  6     0.833  0.436  0.970 too small
+                   Groovestreet | MG Advanced  6     0.833  0.436  0.970 too small
+                        Scotfind | MG Special 17     0.824  0.590  0.938 too small
+                  Dalttechnology | MG Special 17     0.824  0.590  0.938 too small
+                       Inity | GTX Plus Basic 17     0.824  0.590  0.938 too small
+                              Newex | GTX Pro 11     0.818  0.523  0.949 too small
+                       Rundofase | MG Special 22     0.818  0.615  0.927 too small
+                  Goodsilron | GTX Plus Basic 11     0.818  0.523  0.949 too small
+                         Finjob | MG Advanced 16     0.812  0.570  0.934 too small
+     Genco Pura Olive Oil Company | GTX Basic 21     0.810  0.600  0.923 too small
+                         Blackzim | GTX Basic 10     0.800  0.490  0.943 too small
+       Vehement Capital Partners | MG Special  5     0.800  0.376  0.964 too small
+                        Bioplex | MG Advanced  5     0.800  0.376  0.964 too small
+                     Iselectrics | MG Special  5     0.800  0.376  0.964 too small
+                Massive Dynamic | MG Advanced 10     0.800  0.490  0.943 too small
+                     Ontomedia | GTX Plus Pro 10     0.800  0.490  0.943 too small
+                     Ganjaflex | GTX Plus Pro 10     0.800  0.490  0.943 too small
+                     Zotware | GTX Plus Basic 10     0.800  0.490  0.943 too small
+                        Iselectrics | GTX Pro  5     0.800  0.376  0.964 too small
+                Zencorporation | GTX Plus Pro  5     0.800  0.376  0.964 too small
+                           Labdrill | GTX Pro 10     0.800  0.490  0.943 too small
+                          Yearin | MG Special 10     0.800  0.490  0.943 too small
+                Dalttechnology | GTX Plus Pro  5     0.800  0.376  0.964 too small
+                        Dontechi | MG Special 24     0.792  0.595  0.908 too small
+                        Plexzap | MG Advanced 14     0.786  0.524  0.924 too small
+                       Funholding | GTX Basic 14     0.786  0.524  0.924 too small
+              Acme Corporation | GTX Plus Pro  9     0.778  0.453  0.937 too small
+          Vehement Capital Partners | GTX Pro 18     0.778  0.548  0.910 too small
+                       Singletechno | GTX Pro 18     0.778  0.548  0.910 too small
+                     Kinnamplus | MG Advanced  9     0.778  0.453  0.937 too small
+                  Massive Dynamic | GTX Basic  9     0.778  0.453  0.937 too small
+                          Donware | GTX Basic  9     0.778  0.453  0.937 too small
+                        Rangreen | MG Special 18     0.778  0.548  0.910 too small
+              The New York Inquirer | GTX Pro  9     0.778  0.453  0.937 too small
+                    Bioholding | GTX Plus Pro  9     0.778  0.453  0.937 too small
+                     Goodsilron | MG Advanced  9     0.778  0.453  0.937 too small
+                      Kan-code | GTX Plus Pro 22     0.773  0.566  0.899 too small
+                            Inity | GTX Basic 22     0.773  0.566  0.899 too small
+                        Domzoom | MG Advanced 13     0.769  0.497  0.918 too small
+                  Stanredtax | GTX Plus Basic 13     0.769  0.497  0.918 too small
+                       Faxquote | MG Advanced 13     0.769  0.497  0.918 too small
+                  Xx-holding | GTX Plus Basic 13     0.769  0.497  0.918 too small
+                        Gogozoom | MG Special 26     0.769  0.579  0.890 too small
+                     Sunnamplex | MG Advanced 13     0.769  0.497  0.918 too small
+                         Xx-holding | GTX Pro 13     0.769  0.497  0.918 too small
+                         Fasehatice | GTX Pro 17     0.765  0.527  0.904 too small
+                Singletechno | GTX Plus Basic 21     0.762  0.549  0.894 too small
+                        Ron-tech | MG Special 21     0.762  0.549  0.894 too small
+                          Mathtouch | GTX Pro 25     0.760  0.566  0.885 too small
+                       Goodsilron | GTX Basic 25     0.760  0.566  0.885 too small
+                            Initech | GTX Pro  8     0.750  0.409  0.929 too small
+                        Plussunin | GTX Basic 12     0.750  0.468  0.911 too small
+                      Gogozoom | GTX Plus Pro  4     0.750  0.301  0.954 too small
+                      Sumace | GTX Plus Basic  4     0.750  0.301  0.954 too small
+                           Sumace | GTX Basic  8     0.750  0.409  0.929 too small
+                              Inity | GTX Pro 16     0.750  0.505  0.898 too small
+                  Statholdings | GTX Plus Pro  4     0.750  0.301  0.954 too small
+                         Toughzap | GTX Basic 12     0.750  0.468  0.911 too small
+               Umbrella Corporation | GTX Pro 20     0.750  0.531  0.888 too small
+                      Zumgoity | GTX Plus Pro  4     0.750  0.301  0.954 too small
+                         Zumgoity | GTX Basic  8     0.750  0.409  0.929 too small
+                    Betatech | GTX Plus Basic  8     0.750  0.409  0.929 too small
+                            Zotware | GTX Pro 16     0.750  0.505  0.898 too small
+                           Zoomit | GTX Basic 12     0.750  0.468  0.911 too small
+                         Cancity | MG Special 20     0.750  0.531  0.888 too small
+                       Warephase | MG Special 16     0.750  0.505  0.898 too small
+                       Conecom | GTX Plus Pro  8     0.750  0.409  0.929 too small
+                     Konmatfix | GTX Plus Pro  4     0.750  0.301  0.954 too small
+                    Rantouch | GTX Plus Basic 16     0.750  0.505  0.898 too small
+                           Konex | MG Special 16     0.750  0.505  0.898 too small
+                    Y-corporation | GTX Basic 27     0.741  0.553  0.868 too small
+                       Treequote | MG Special 19     0.737  0.512  0.882 too small
+                       Xx-zobam | MG Advanced 19     0.737  0.512  0.882 too small
+                   Warephase | GTX Plus Basic 19     0.737  0.512  0.882 too small
+                          Condax | MG Special 41     0.732  0.581  0.843          
+                          J-Texon | GTX Basic 22     0.727  0.518  0.868 too small
+                         Kinnamplus | GTX Pro 11     0.727  0.434  0.903 too small
+                       Betatech | MG Advanced 11     0.727  0.434  0.903 too small
+                          Zoomit | MG Special 11     0.727  0.434  0.903 too small
+                         Green-Plus | GTX Pro 11     0.727  0.434  0.903 too small
+                      Goodsilron | MG Special 11     0.727  0.434  0.903 too small
+                       Zathunicon | GTX Basic 11     0.727  0.434  0.903 too small
+                    Singletechno | MG Special 11     0.727  0.434  0.903 too small
+       Genco Pura Olive Oil Company | GTX Pro 11     0.727  0.434  0.903 too small
+                        Sonron | GTX Plus Pro 11     0.727  0.434  0.903 too small
+                       Labdrill | MG Advanced 18     0.722  0.491  0.875 too small
+                         Konex | GTX Plus Pro 18     0.722  0.491  0.875 too small
+                        Condax | GTX Plus Pro 18     0.722  0.491  0.875 too small
+                          Plusstrip | GTX Pro  7     0.714  0.359  0.918 too small
+                    Gekko & Co | GTX Plus Pro  7     0.714  0.359  0.918 too small
+                       Plussunin | MG Special  7     0.714  0.359  0.918 too small
+                       J-Texon | GTX Plus Pro  7     0.714  0.359  0.918 too small
+                       Silis | GTX Plus Basic  7     0.714  0.359  0.918 too small
+                           Zumgoity | GTX Pro  7     0.714  0.359  0.918 too small
+                     Zencorporation | GTX Pro 14     0.714  0.454  0.883 too small
+                       Xx-holding | GTX Basic 14     0.714  0.454  0.883 too small
+                       Scotfind | MG Advanced 14     0.714  0.454  0.883 too small
+                         Gogozoom | GTX Basic 14     0.714  0.454  0.883 too small
+                            Bioplex | GTX Pro  7     0.714  0.359  0.918 too small
+                       Mathtouch | MG Special  7     0.714  0.359  0.918 too small
+                   Plusstrip | GTX Plus Basic  7     0.714  0.359  0.918 too small
+                        Ganjaflex | GTX Basic 21     0.714  0.500  0.862 too small
+                   Ganjaflex | GTX Plus Basic  7     0.714  0.359  0.918 too small
+                          Plexzap | GTX Basic 17     0.706  0.469  0.867 too small
+                      Cheers | GTX Plus Basic 17     0.706  0.469  0.867 too small
+                    Goodsilron | GTX Plus Pro 17     0.706  0.469  0.867 too small
+                            Cancity | GTX Pro 17     0.706  0.469  0.867 too small
+                          Warephase | GTX Pro 17     0.706  0.469  0.867 too small
+                      Warephase | MG Advanced 17     0.706  0.469  0.867 too small
+                       Streethex | MG Special 27     0.704  0.515  0.841 too small
+                           Newex | MG Special 10     0.700  0.397  0.892 too small
+                    Green-Plus | GTX Plus Pro 10     0.700  0.397  0.892 too small
+                  Bubba Gump | GTX Plus Basic 10     0.700  0.397  0.892 too small
+                            Nam-zim | GTX Pro 10     0.700  0.397  0.892 too small
+                     Betasoloin | MG Advanced 10     0.700  0.397  0.892 too small
+          Umbrella Corporation | GTX Plus Pro 10     0.700  0.397  0.892 too small
+                  Gekko & Co | GTX Plus Basic 20     0.700  0.481  0.855 too small
+            Globex Corporation | GTX Plus Pro 10     0.700  0.397  0.892 too small
+                     Dalttechnology | GTX Pro 10     0.700  0.397  0.892 too small
+                       Betasoloin | GTX Basic 10     0.700  0.397  0.892 too small
+                             Sonron | GTX Pro 10     0.700  0.397  0.892 too small
+                      Condax | GTX Plus Basic 23     0.696  0.491  0.844 too small
+                      Bioholding | MG Special 23     0.696  0.491  0.844 too small
+                         Betasoloin | GTX Pro 13     0.692  0.424  0.873 too small
+                     Gekko & Co | MG Advanced 13     0.692  0.424  0.873 too small
+                         Bioplex | MG Special 13     0.692  0.424  0.873 too small
+                         Goodsilron | GTX Pro 13     0.692  0.424  0.873 too small
+           Umbrella Corporation | MG Advanced 13     0.692  0.424  0.873 too small
+                   Konmatfix | GTX Plus Basic 13     0.692  0.424  0.873 too small
+                          Nam-zim | GTX Basic 13     0.692  0.424  0.873 too small
+                       Rangreen | MG Advanced 26     0.692  0.500  0.835 too small
+                         Conecom | MG Special 13     0.692  0.424  0.873 too small
+                         Scottech | GTX Basic 13     0.692  0.424  0.873 too small
+                           Condax | GTX Basic 32     0.688  0.514  0.820          
+                   Dalttechnology | GTX Basic 16     0.688  0.444  0.858 too small
+                        Codehow | MG Advanced 16     0.688  0.444  0.858 too small
+                         Gekko & Co | GTX Pro 16     0.688  0.444  0.858 too small
+                  Zathunicon | GTX Plus Basic 16     0.688  0.444  0.858 too small
+                          Domzoom | GTX Basic 16     0.688  0.444  0.858 too small
+                         Ron-tech | GTX Basic 22     0.682  0.473  0.836 too small
+                        Rundofase | GTX Basic 28     0.679  0.493  0.821 too small
+                       Initech | GTX Plus Pro  9     0.667  0.354  0.879 too small
+                     Plussunin | GTX Plus Pro 12     0.667  0.391  0.862 too small
+                      Mathtouch | MG Advanced 12     0.667  0.391  0.862 too small
+                         Newex | GTX Plus Pro  3     0.667  0.208  0.939 too small
+                       Plexzap | GTX Plus Pro  9     0.667  0.354  0.879 too small
+                          Konmatfix | GTX Pro  6     0.667  0.300  0.903 too small
+                           Opentech | GTX Pro  9     0.667  0.354  0.879 too small
+                       Nam-zim | GTX Plus Pro  3     0.667  0.208  0.939 too small
+                              Konex | GTX Pro 27     0.667  0.478  0.814 too small
+                    Kinnamplus | GTX Plus Pro  6     0.667  0.300  0.903 too small
+                      Konmatfix | MG Advanced  9     0.667  0.354  0.879 too small
+                      Labdrill | GTX Plus Pro  6     0.667  0.300  0.903 too small
+                         Labdrill | GTX Basic 15     0.667  0.417  0.848 too small
+                       Opentech | MG Advanced  6     0.667  0.300  0.903 too small
+                          Konex | MG Advanced 33     0.667  0.496  0.802          
+                Statholdings | GTX Plus Basic 12     0.667  0.391  0.862 too small
+                    Gogozoom | GTX Plus Basic  6     0.667  0.300  0.903 too small
+                         Xx-holding | GTK 500  3     0.667  0.208  0.939 too small
+                    Funholding | GTX Plus Pro  9     0.667  0.354  0.879 too small
+                             Finjob | GTX Pro 12     0.667  0.391  0.862 too small
+                        Streethex | GTX Basic 21     0.667  0.454  0.828 too small
+                     Streethex | GTX Plus Pro 15     0.667  0.417  0.848 too small
+                        Finhigh | MG Advanced 18     0.667  0.437  0.837 too small
+                        Faxquote | MG Special  9     0.667  0.354  0.879 too small
+                          Sumace | MG Special  3     0.667  0.208  0.939 too small
+                     Domzoom | GTX Plus Basic 12     0.667  0.391  0.862 too small
+                       Domzoom | GTX Plus Pro  9     0.667  0.354  0.879 too small
+                    Fasehatice | GTX Plus Pro  9     0.667  0.354  0.879 too small
+                           Toughzap | GTX Pro  9     0.667  0.354  0.879 too small
+                         Domzoom | MG Special 21     0.667  0.454  0.828 too small
+                      Dontechi | GTX Plus Pro  6     0.667  0.300  0.903 too small
+                      Treequote | MG Advanced 18     0.667  0.437  0.837 too small
+                           Sonron | GTX Basic 21     0.667  0.454  0.828 too small
+                    Donquadtech | MG Advanced 12     0.667  0.391  0.862 too small
+                        Zoomit | GTX Plus Pro  3     0.667  0.208  0.939 too small
+                           Gogozoom | GTX Pro 12     0.667  0.391  0.862 too small
+                             Hatfan | GTX Pro 15     0.667  0.417  0.848 too small
+                        Betatech | MG Special 21     0.667  0.454  0.828 too small
+                      Bluth Company | GTX Pro  9     0.667  0.354  0.879 too small
+                         Silis | GTX Plus Pro  6     0.667  0.300  0.903 too small
+                         Zoomit | MG Advanced  6     0.667  0.300  0.903 too small
+                 Zencorporation | MG Advanced  3     0.667  0.208  0.939 too small
+                         Dontechi | GTX Basic 26     0.654  0.462  0.806 too small
+                     Codehow | GTX Plus Basic 23     0.652  0.449  0.812 too small
+                         Faxquote | GTX Basic 20     0.650  0.433  0.819 too small
+                       Konmatfix | MG Special 20     0.650  0.433  0.819 too small
+                           Scotfind | GTX Pro 20     0.650  0.433  0.819 too small
+                     Treequote | GTX Plus Pro 17     0.647  0.413  0.827 too small
+                  Fasehatice | GTX Plus Basic 17     0.647  0.413  0.827 too small
+                           Isdom | MG Special 17     0.647  0.413  0.827 too small
+                        Warephase | GTX Basic 17     0.647  0.413  0.827 too small
+                            Conecom | GTX Pro 17     0.647  0.413  0.827 too small
+                 Donquadtech | GTX Plus Basic 17     0.647  0.413  0.827 too small
+                    Hottechi | GTX Plus Basic 31     0.645  0.469  0.789          
+                           Ron-tech | GTX Pro 14     0.643  0.388  0.837 too small
+                     Golddex | GTX Plus Basic 14     0.643  0.388  0.837 too small
+                        Hatfan | GTX Plus Pro 14     0.643  0.388  0.837 too small
+                   Zencorporation | GTX Basic 14     0.643  0.388  0.837 too small
+                        Zotware | MG Advanced 14     0.643  0.388  0.837 too small
+                         Isdom | GTX Plus Pro 14     0.643  0.388  0.837 too small
+               Y-corporation | GTX Plus Basic 11     0.636  0.354  0.848 too small
+                             Doncon | GTX Pro 11     0.636  0.354  0.848 too small
+            Acme Corporation | GTX Plus Basic 11     0.636  0.354  0.848 too small
+                     dambase | GTX Plus Basic 11     0.636  0.354  0.848 too small
+                 Massive Dynamic | MG Special 11     0.636  0.354  0.848 too small
+                             Sumace | GTX Pro 11     0.636  0.354  0.848 too small
+                          Rundofase | GTX Pro 19     0.632  0.410  0.809 too small
+                           Inity | MG Special 19     0.632  0.410  0.809 too small
+                          Cancity | GTX Basic 19     0.632  0.410  0.809 too small
+                        Ontomedia | GTX Basic  8     0.625  0.306  0.863 too small
+                      Gekko & Co | MG Special 16     0.625  0.386  0.815 too small
+                      Rangreen | GTX Plus Pro  8     0.625  0.306  0.863 too small
+                        Initech | MG Advanced  8     0.625  0.306  0.863 too small
+                         Initech | MG Special  8     0.625  0.306  0.863 too small
+                Groovestreet | GTX Plus Basic  8     0.625  0.306  0.863 too small
+                          Golddex | GTX Basic 16     0.625  0.386  0.815 too small
+                         Xx-zobam | GTX Basic 16     0.625  0.386  0.815 too small
+                             Condax | GTX Pro 24     0.625  0.427  0.788 too small
+                      Finjob | GTX Plus Basic  8     0.625  0.306  0.863 too small
+                        Toughzap | MG Special 16     0.625  0.386  0.815 too small
+                   Treequote | GTX Plus Basic  8     0.625  0.306  0.863 too small
+                  Funholding | GTX Plus Basic 21     0.619  0.409  0.792 too small
+                           Kan-code | GTX Pro 42     0.619  0.468  0.750          
+                         Hottechi | GTX Basic 60     0.617  0.490  0.729          
+             Umbrella Corporation | GTX Basic 13     0.615  0.355  0.823 too small
+                     Singletechno | GTX Basic 26     0.615  0.425  0.776 too small
+                          Sonron | MG Special 13     0.615  0.355  0.823 too small
+                           Rangreen | GTX Pro 13     0.615  0.355  0.823 too small
+                      Sunnamplex | MG Special 13     0.615  0.355  0.823 too small
+                         dambase | MG Special 26     0.615  0.425  0.776 too small
+                  Lexiqvolax | GTX Plus Basic 13     0.615  0.355  0.823 too small
+                      Green-Plus | MG Special 13     0.615  0.355  0.823 too small
+                     Groovestreet | GTX Basic 13     0.615  0.355  0.823 too small
+          Globex Corporation | GTX Plus Basic 13     0.615  0.355  0.823 too small
+                        Hottechi | MG Special 31     0.613  0.438  0.763          
+                          Doncon | MG Special 18     0.611  0.386  0.797 too small
+                       Lexiqvolax | GTX Basic 18     0.611  0.386  0.797 too small
+                         Scotfind | GTX Basic 23     0.609  0.408  0.778 too small
+                     Stanredtax | MG Advanced 23     0.609  0.408  0.778 too small
+                         Kan-code | GTX Basic 43     0.605  0.456  0.736          
+                   Streethex | GTX Plus Basic 15     0.600  0.357  0.802 too small
+                            J-Texon | GTX Pro 10     0.600  0.313  0.832 too small
+                     J-Texon | GTX Plus Basic 10     0.600  0.313  0.832 too small
+                      Yearin | GTX Plus Basic 10     0.600  0.313  0.832 too small
+                   Statholdings | MG Advanced 10     0.600  0.313  0.832 too small
+                 Iselectrics | GTX Plus Basic 10     0.600  0.313  0.832 too small
+                          Isdom | MG Advanced 25     0.600  0.407  0.766 too small
+                  Y-corporation | MG Advanced 10     0.600  0.313  0.832 too small
+                    Massive Dynamic | GTX Pro 15     0.600  0.357  0.802 too small
+             Globex Corporation | MG Advanced 15     0.600  0.357  0.802 too small
+                    Kan-code | GTX Plus Basic 25     0.600  0.407  0.766 too small
+                           Hottechi | GTX Pro 25     0.600  0.407  0.766 too small
+                   Bluth Company | MG Special 10     0.600  0.313  0.832 too small
+                     Zathunicon | MG Advanced  5     0.600  0.231  0.882 too small
+                        Scottech | MG Special 25     0.600  0.407  0.766 too small
+                       Rantouch | MG Advanced 10     0.600  0.313  0.832 too small
+                      Scottech | GTX Plus Pro  5     0.600  0.231  0.882 too small
+                      Rundofase | MG Advanced 10     0.600  0.313  0.832 too small
+                       Golddex | GTX Plus Pro  5     0.600  0.231  0.882 too small
+                     Rundofase | GTX Plus Pro  5     0.600  0.231  0.882 too small
+                     Xx-holding | MG Advanced 15     0.600  0.357  0.802 too small
+                     Nam-zim | GTX Plus Basic  5     0.600  0.231  0.882 too small
+                          Newex | MG Advanced 10     0.600  0.313  0.832 too small
+            The New York Inquirer | GTX Basic  5     0.600  0.231  0.882 too small
+         The New York Inquirer | GTX Plus Pro  5     0.600  0.231  0.882 too small
+                         Nam-zim | MG Special 15     0.600  0.357  0.802 too small
+                            Finhigh | GTX Pro 10     0.600  0.313  0.832 too small
+                       Newex | GTX Plus Basic  5     0.600  0.231  0.882 too small
+                             Cheers | GTX Pro 10     0.600  0.313  0.832 too small
+                         Betatech | GTX Basic 20     0.600  0.387  0.781 too small
+                     Warephase | GTX Plus Pro 15     0.600  0.357  0.802 too small
+                      Donquadtech | GTX Basic 10     0.600  0.313  0.832 too small
+                          Conecom | GTX Basic 22     0.591  0.387  0.767 too small
+                         Finhigh | MG Special 22     0.591  0.387  0.767 too small
+                          Finhigh | GTX Basic 17     0.588  0.360  0.784 too small
+                       Sunnamplex | GTX Basic 17     0.588  0.360  0.784 too small
+                         Funholding | GTX Pro 17     0.588  0.360  0.784 too small
+                           Xx-zobam | GTX Pro 17     0.588  0.360  0.784 too small
+                   Plussunin | GTX Plus Basic 17     0.588  0.360  0.784 too small
+                       Kan-code | MG Advanced 34     0.588  0.422  0.736          
+                           Finjob | GTX Basic 29     0.586  0.407  0.745 too small
+                        Konmatfix | GTX Basic 12     0.583  0.320  0.807 too small
+                      Betatech | GTX Plus Pro 12     0.583  0.320  0.807 too small
+                   Rundofase | GTX Plus Basic 12     0.583  0.320  0.807 too small
+                        Mathtouch | GTX Basic 12     0.583  0.320  0.807 too small
+                     Mathtouch | GTX Plus Pro 12     0.583  0.320  0.807 too small
+                          Hatfan | MG Special 12     0.583  0.320  0.807 too small
+                        Opentech | MG Special 12     0.583  0.320  0.807 too small
+                           Scottech | GTX Pro 12     0.583  0.320  0.807 too small
+                       Codehow | GTX Plus Pro 12     0.583  0.320  0.807 too small
+                   Y-corporation | MG Special 12     0.583  0.320  0.807 too small
+                             Yearin | GTX Pro 12     0.583  0.320  0.807 too small
+                 Globex Corporation | GTX Pro 12     0.583  0.320  0.807 too small
+                        Blackzim | MG Special 19     0.579  0.363  0.769 too small
+                           Cheers | GTX Basic 26     0.577  0.389  0.745 too small
+                    Ron-tech | GTX Plus Basic 26     0.577  0.389  0.745 too small
+                       Konex | GTX Plus Basic 33     0.576  0.408  0.728          
+                  Sunnamplex | GTX Plus Basic  7     0.571  0.250  0.842 too small
+                    Toughzap | GTX Plus Basic  7     0.571  0.250  0.842 too small
+                 Y-corporation | GTX Plus Pro  7     0.571  0.250  0.842 too small
+                         Yearin | MG Advanced  7     0.571  0.250  0.842 too small
+   Vehement Capital Partners | GTX Plus Basic  7     0.571  0.250  0.842 too small
+              Dalttechnology | GTX Plus Basic  7     0.571  0.250  0.842 too small
+                            Domzoom | GTX Pro  7     0.571  0.250  0.842 too small
+        Vehement Capital Partners | GTX Basic  7     0.571  0.250  0.842 too small
+                     Initech | GTX Plus Basic 14     0.571  0.326  0.786 too small
+                       Ron-tech | MG Advanced 21     0.571  0.365  0.755 too small
+                            Konex | GTX Basic 42     0.571  0.422  0.709          
+                       Bioholding | GTX Basic 21     0.571  0.365  0.755 too small
+                      Hatfan | GTX Plus Basic 14     0.571  0.326  0.786 too small
+                       Bioplex | GTX Plus Pro  7     0.571  0.250  0.842 too small
+                     Conecom | GTX Plus Basic 16     0.562  0.332  0.769 too small
+                  Betasoloin | GTX Plus Basic  9     0.556  0.267  0.811 too small
+               Globex Corporation | GTX Basic 18     0.556  0.337  0.754 too small
+                       Isdom | GTX Plus Basic 18     0.556  0.337  0.754 too small
+                         Sonron | MG Advanced  9     0.556  0.267  0.811 too small
+                          dambase | GTX Basic 18     0.556  0.337  0.754 too small
+                       Toughzap | MG Advanced  9     0.556  0.267  0.811 too small
+                           Dontechi | GTX Pro 18     0.556  0.337  0.754 too small
+                        Labdrill | MG Special  9     0.556  0.267  0.811 too small
+                       Green-Plus | GTX Basic 18     0.556  0.337  0.754 too small
+                      Blackzim | GTX Plus Pro  9     0.556  0.267  0.811 too small
+                         Cheers | MG Advanced 20     0.550  0.342  0.742 too small
+                          Plussunin | GTX Pro 20     0.550  0.342  0.742 too small
+                          Treequote | GTX Pro 22     0.545  0.347  0.731 too small
+                       Stanredtax | GTX Basic 22     0.545  0.347  0.731 too small
+Genco Pura Olive Oil Company | GTX Plus Basic 11     0.545  0.280  0.787 too small
+                      Funholding | MG Special 22     0.545  0.347  0.731 too small
+                     Donware | GTX Plus Basic 11     0.545  0.280  0.787 too small
+                     Plexzap | GTX Plus Basic 11     0.545  0.280  0.787 too small
+                         Golddex | MG Special 11     0.545  0.280  0.787 too small
+           The New York Inquirer | MG Special 11     0.545  0.280  0.787 too small
+                       Gogozoom | MG Advanced 11     0.545  0.280  0.787 too small
+                       Bubba Gump | GTX Basic 11     0.545  0.280  0.787 too small
+                      Zathunicon | MG Special 11     0.545  0.280  0.787 too small
+          The New York Inquirer | MG Advanced 11     0.545  0.280  0.787 too small
+                       Dontechi | MG Advanced 24     0.542  0.351  0.721 too small
+                            Plexzap | GTX Pro 13     0.538  0.291  0.768 too small
+                       Zotware | GTX Plus Pro 13     0.538  0.291  0.768 too small
+                           Hatfan | GTX Basic 13     0.538  0.291  0.768 too small
+                   Acme Corporation | GTX Pro 13     0.538  0.291  0.768 too small
+                       Finhigh | GTX Plus Pro 13     0.538  0.291  0.768 too small
+                      Ganjaflex | MG Advanced 13     0.538  0.291  0.768 too small
+                       Zumgoity | MG Advanced 13     0.538  0.291  0.768 too small
+                          Zotware | GTX Basic 13     0.538  0.291  0.768 too small
+                          Silis | MG Advanced 13     0.538  0.291  0.768 too small
+                    Groovestreet | MG Special 13     0.538  0.291  0.768 too small
+                      Kinnamplus | MG Special 13     0.538  0.291  0.768 too small
+                       Fasehatice | GTX Basic 15     0.533  0.301  0.752 too small
+                         Codehow | MG Special 30     0.533  0.361  0.698          
+                       Kinnamplus | GTX Basic 17     0.529  0.310  0.738 too small
+                          Ontomedia | GTX Pro 17     0.529  0.310  0.738 too small
+                      Y-corporation | GTX Pro 17     0.529  0.310  0.738 too small
+                          Ganjaflex | GTX Pro 17     0.529  0.310  0.738 too small
+              Globex Corporation | MG Special 17     0.529  0.310  0.738 too small
+                        Kan-code | MG Special 19     0.526  0.317  0.727 too small
+                            Isdom | GTX Basic 19     0.526  0.317  0.727 too small
+                              Isdom | GTX Pro 19     0.526  0.317  0.727 too small
+                        Treequote | GTX Basic 21     0.524  0.324  0.717 too small
+                      Plussunin | MG Advanced 23     0.522  0.330  0.708 too small
+                            dambase | GTX Pro 10     0.500  0.237  0.763 too small
+             Massive Dynamic | GTX Plus Basic 10     0.500  0.237  0.763 too small
+                 Dalttechnology | MG Advanced  6     0.500  0.188  0.812 too small
+                         Donware | MG Special 12     0.500  0.254  0.746 too small
+                            Donware | GTX Pro  6     0.500  0.188  0.812 too small
+                        Conecom | MG Advanced 12     0.500  0.254  0.746 too small
+                   Donquadtech | GTX Plus Pro 10     0.500  0.237  0.763 too small
+                         Lexiqvolax | GTX Pro  8     0.500  0.215  0.785 too small
+                      Toughzap | GTX Plus Pro 10     0.500  0.237  0.763 too small
+                       Groovestreet | GTX Pro 10     0.500  0.237  0.763 too small
+               Massive Dynamic | GTX Plus Pro  4     0.500  0.150  0.850 too small
+                      Fasehatice | MG Special 12     0.500  0.254  0.746 too small
+                         Stanredtax | GTX Pro 16     0.500  0.280  0.720 too small
+                    Scotfind | GTX Plus Basic 14     0.500  0.268  0.732 too small
+                    Bluth Company | GTX Basic 10     0.500  0.237  0.763 too small
+              Zencorporation | GTX Plus Basic  6     0.500  0.188  0.812 too small
+                        Golddex | MG Advanced  6     0.500  0.188  0.812 too small
+                          Bioplex | GTX Basic 10     0.500  0.237  0.763 too small
+                             Zoomit | GTX Pro  6     0.500  0.188  0.812 too small
+                  Bioholding | GTX Plus Basic 12     0.500  0.254  0.746 too small
+                         Inity | GTX Plus Pro 14     0.500  0.268  0.732 too small
+                          Inity | MG Advanced 12     0.500  0.254  0.746 too small
+                       Cancity | GTX Plus Pro 10     0.500  0.237  0.763 too small
+                    Betasoloin | GTX Plus Pro  8     0.500  0.215  0.785 too small
+                             Cheers | GTK 500  6     0.500  0.188  0.812 too small
+                    Iselectrics | MG Advanced  6     0.500  0.188  0.812 too small
+                         J-Texon | MG Special 14     0.500  0.268  0.732 too small
+                        Xx-zobam | MG Special  6     0.500  0.188  0.812 too small
+                           Kan-code | GTK 500  2     0.500  0.095  0.905 too small
+                    Opentech | GTX Plus Basic 10     0.500  0.237  0.763 too small
+                      Ontomedia | MG Advanced 10     0.500  0.237  0.763 too small
+                           Faxquote | GTX Pro 12     0.500  0.254  0.746 too small
+                      Betasoloin | MG Special  4     0.500  0.150  0.850 too small
+                         Goodsilron | GTK 500  2     0.500  0.095  0.905 too small
+                    Statholdings | MG Special 21     0.476  0.283  0.676 too small
+   Genco Pura Olive Oil Company | MG Advanced 19     0.474  0.273  0.683 too small
+                       Blackzim | MG Advanced 17     0.471  0.262  0.690 too small
+                     Finhigh | GTX Plus Basic 13     0.462  0.232  0.709 too small
+                              Silis | GTX Pro 13     0.462  0.232  0.709 too small
+                       Plusstrip | MG Special 13     0.462  0.232  0.709 too small
+                   Mathtouch | GTX Plus Basic 13     0.462  0.232  0.709 too small
+                     Fasehatice | MG Advanced 11     0.455  0.213  0.720 too small
+                         Bioholding | GTX Pro 11     0.455  0.213  0.720 too small
+                       Hottechi | MG Advanced 31     0.452  0.292  0.622          
+                     Green-Plus | MG Advanced  9     0.444  0.189  0.733 too small
+                      Sonron | GTX Plus Basic  9     0.444  0.189  0.733 too small
+                     Bioholding | MG Advanced  9     0.444  0.189  0.733 too small
+                       Statholdings | GTX Pro  9     0.444  0.189  0.733 too small
+                Acme Corporation | MG Special  9     0.444  0.189  0.733 too small
+                     Bubba Gump | MG Advanced  9     0.444  0.189  0.733 too small
+            Umbrella Corporation | MG Special  9     0.444  0.189  0.733 too small
+                         Plexzap | MG Special  9     0.444  0.189  0.733 too small
+                  Bluth Company | MG Advanced  9     0.444  0.189  0.733 too small
+                          Streethex | GTX Pro 16     0.438  0.231  0.668 too small
+                     Funholding | MG Advanced 16     0.438  0.231  0.668 too small
+                          Initech | GTX Basic 16     0.438  0.231  0.668 too small
+                           Betatech | GTX Pro 14     0.429  0.214  0.674 too small
+                    Sunnamplex | GTX Plus Pro  7     0.429  0.158  0.750 too small
+                    Faxquote | GTX Plus Basic 14     0.429  0.214  0.674 too small
+                         Condax | MG Advanced 21     0.429  0.245  0.635 too small
+                        Cancity | MG Advanced 14     0.429  0.214  0.674 too small
+                        dambase | MG Advanced 14     0.429  0.214  0.674 too small
+    Genco Pura Olive Oil Company | MG Special 19     0.421  0.231  0.637 too small
+                            Codehow | GTX Pro 19     0.421  0.231  0.637 too small
+      Vehement Capital Partners | MG Advanced 12     0.417  0.193  0.680 too small
+                  Singletechno | GTX Plus Pro 12     0.417  0.193  0.680 too small
+        Umbrella Corporation | GTX Plus Basic 12     0.417  0.193  0.680 too small
+                         Rantouch | GTX Basic 12     0.417  0.193  0.680 too small
+                    Labdrill | GTX Plus Basic 12     0.417  0.193  0.680 too small
+                            Silis | GTX Basic 17     0.412  0.216  0.640 too small
+                    Bubba Gump | GTX Plus Pro  5     0.400  0.118  0.769 too small
+                      Hottechi | GTX Plus Pro 15     0.400  0.198  0.643 too small
+                      Iselectrics | GTX Basic  5     0.400  0.118  0.769 too small
+                   Ontomedia | GTX Plus Basic  5     0.400  0.118  0.769 too small
+                       Scottech | MG Advanced 10     0.400  0.168  0.687 too small
+                 Acme Corporation | GTX Basic 10     0.400  0.168  0.687 too small
+                      Doncon | GTX Plus Basic  5     0.400  0.118  0.769 too small
+                      Streethex | MG Advanced 10     0.400  0.168  0.687 too small
+                    Xx-zobam | GTX Plus Basic 10     0.400  0.168  0.687 too small
+                     Cancity | GTX Plus Basic 13     0.385  0.177  0.645 too small
+     Vehement Capital Partners | GTX Plus Pro  8     0.375  0.137  0.694 too small
+                         Sumace | MG Advanced  8     0.375  0.137  0.694 too small
+                      Lexiqvolax | MG Special  8     0.375  0.137  0.694 too small
+                         Opentech | GTX Basic  8     0.375  0.137  0.694 too small
+                     Statholdings | GTX Basic  8     0.375  0.137  0.694 too small
+                    Dontechi | GTX Plus Basic 19     0.368  0.191  0.590 too small
+                  Green-Plus | GTX Plus Basic 11     0.364  0.152  0.646 too small
+                    Blackzim | GTX Plus Basic 11     0.364  0.152  0.646 too small
+                    Xx-holding | GTX Plus Pro 11     0.364  0.152  0.646 too small
+                        Zumgoity | MG Special 14     0.357  0.163  0.612 too small
+                           Doncon | GTX Basic 12     0.333  0.138  0.609 too small
+                        Nam-zim | MG Advanced  6     0.333  0.097  0.700 too small
+                         Zathunicon | GTX Pro  3     0.333  0.061  0.792 too small
+                            Golddex | GTX Pro  6     0.333  0.097  0.700 too small
+                      Xx-zobam | GTX Plus Pro 15     0.333  0.152  0.583 too small
+                           Rantouch | GTX Pro  9     0.333  0.121  0.646 too small
+                        Yearin | GTX Plus Pro  9     0.333  0.121  0.646 too small
+                      Xx-holding | MG Special 10     0.300  0.108  0.603 too small
+                       Ganjaflex | MG Special  7     0.286  0.082  0.641 too small
+                      Rantouch | GTX Plus Pro  7     0.286  0.082  0.641 too small
+                     Lexiqvolax | MG Advanced  7     0.286  0.082  0.641 too small
+                        Sumace | GTX Plus Pro  7     0.286  0.082  0.641 too small
+                         Hatfan | MG Advanced  8     0.250  0.071  0.591 too small
+                 Bluth Company | GTX Plus Pro  4     0.250  0.046  0.699 too small
+                       Donware | GTX Plus Pro  9     0.222  0.063  0.547 too small
+                              Konex | GTK 500  2     0.000  0.000  0.658 too small
+                          Treequote | GTK 500  1     0.000  0.000  0.793 too small
+                       Singletechno | GTK 500  1     0.000  0.000  0.793 too small
+
+--- price_bucket: 7 levels; chi2=6.5, dof=6, p=0.372; levels with n<30: 1 (25 rows)
+         price_bucket    n  win_rate  ci_lo  ci_hi      flag
+      55 (MG Special) 1223     0.648  0.621  0.675          
+  5482 (GTX Plus Pro)  745     0.643  0.608  0.677          
+      550 (GTX Basic) 1436     0.637  0.612  0.662          
+       4821 (GTX Pro) 1147     0.636  0.607  0.663          
+1096 (GTX Plus Basic) 1051     0.621  0.592  0.650          
+   3393 (MG Advanced) 1084     0.603  0.574  0.632          
+      26768 (GTK 500)   25     0.600  0.407  0.766 too small
+
+--- price_rel_revenue_q: 5 levels; chi2=0.6, dof=4, p=0.967; levels with n<30: 0 (0 rows)
+price_rel_revenue_q    n  win_rate  ci_lo  ci_hi flag
+                 Q2 1319     0.636  0.610  0.662     
+                 Q5 1339     0.635  0.609  0.660     
+                 Q1 1370     0.634  0.608  0.659     
+                 Q4 1335     0.627  0.601  0.653     
+                 Q3 1348     0.625  0.599  0.651     
+
+--- revenue_q: 5 levels; chi2=5.1, dof=4, p=0.279; levels with n<30: 0 (0 rows)
+revenue_q    n  win_rate  ci_lo  ci_hi flag
+       Q4 1321     0.643  0.617  0.669     
+       Q3 1335     0.643  0.617  0.668     
+       Q1 1359     0.641  0.615  0.666     
+       Q5 1330     0.617  0.590  0.642     
+       Q2 1366     0.614  0.588  0.640     
+
+--- employees_q: 5 levels; chi2=4.4, dof=4, p=0.36; levels with n<30: 0 (0 rows)
+employees_q    n  win_rate  ci_lo  ci_hi flag
+         Q4 1348     0.648  0.622  0.673     
+         Q1 1387     0.640  0.614  0.664     
+         Q3 1355     0.635  0.609  0.660     
+         Q5 1290     0.621  0.594  0.647     
+         Q2 1331     0.614  0.587  0.640     
+
+--- year_established_q: 5 levels; chi2=3.6, dof=4, p=0.469; levels with n<30: 0 (0 rows)
+year_established_q    n  win_rate  ci_lo  ci_hi flag
+                Q1 1513     0.644  0.620  0.668     
+                Q2 1372     0.641  0.616  0.666     
+                Q5 1298     0.630  0.604  0.656     
+                Q4 1264     0.623  0.596  0.650     
+                Q3 1264     0.615  0.588  0.641     
+
+--- is_subsidiary: 2 levels; chi2=0.1, dof=1, p=0.74; levels with n<30: 0 (0 rows)
+ is_subsidiary    n  win_rate  ci_lo  ci_hi flag
+          True 1160     0.636  0.608  0.663     
+         False 5551     0.631  0.618  0.643     
+
+====================================================================================================
+3b. Univariate out-of-fold AUC on the saved Phase 1 folds (smoothed target mean, m=20)
+====================================================================================================
+             feature  levels  oof_auc    std  oof_auc_post_window  oof_auc_trimmed
+         engage_year       2   0.5184 0.0087               0.5000           0.5000
+            engage_q       4   0.5354 0.0198               0.5173           0.5137
+        engage_month      12   0.5649 0.0092               0.5463           0.5415
+    month_in_quarter       3   0.5461 0.0104               0.5488           0.5458
+weeks_to_quarter_end      14   0.5649 0.0211               0.5667           0.5644
+         sales_agent      30   0.5068 0.0101               0.5052           0.5041
+             account      85   0.4905 0.0135               0.4966           0.4977
+             product       7   0.5023 0.0177               0.5049           0.5043
+             manager       6   0.4968 0.0148               0.4975           0.4960
+     regional_office       3   0.5017 0.0159               0.5027           0.5026
+              sector      10   0.4862 0.0125               0.4896           0.4892
+     office_location      15   0.4972 0.0136               0.4939           0.4949
+     agent_x_product     178   0.5008 0.0188               0.4976           0.4970
+
+Joint key x month_in_quarter cells (mixes the key with the calendar main effect):
+   product x month_in_quarter: chi2=65.9 dof=20 p=8.45e-07
+   sales_agent x month_in_quarter: chi2=148.8 dof=89 p=7.33e-05
+
+Does the key matter once the calendar is held fixed? (sum of within-stratum chi2)
+   product          within month_in_quarter  chi2=   18.9 dof=  18 p=0.4
+   product          within engage_month      chi2=   86.0 dof=  69 p=0.0808
+   sales_agent      within month_in_quarter  chi2=  102.9 dof=  87 p=0.118
+   sales_agent      within engage_month      chi2=  346.4 dof= 348 p=0.514
+   account          within month_in_quarter  chi2=  240.7 dof= 252 p=0.686
+   account          within engage_month      chi2=  968.4 dof= 995 p=0.722
+   manager          within month_in_quarter  chi2=   13.8 dof=  15 p=0.543
+   manager          within engage_month      chi2=   61.9 dof=  60 p=0.408
+   regional_office  within month_in_quarter  chi2=    4.3 dof=   6 p=0.635
+   regional_office  within engage_month      chi2=   18.0 dof=  24 p=0.801
+   sector           within month_in_quarter  chi2=   22.5 dof=  27 p=0.714
+   sector           within engage_month      chi2=   96.7 dof= 108 p=0.773
+
+Time-aware history preview (training-fold deals closed strictly before engage_date):
+   sales_agent  win-rate AUC 0.4911 ± 0.0125 (post-window 0.4984, trimmed 0.4999); count AUC 0.4631 ± 0.0226 (trimmed 0.4866); rows with no history 15.3%
+   account      win-rate AUC 0.4809 ± 0.0158 (post-window 0.4833, trimmed 0.4851); count AUC 0.4669 ± 0.0245 (trimmed 0.4906); rows with no history 16.4%
+   product      win-rate AUC 0.4737 ± 0.0086 (post-window 0.4849, trimmed 0.4884); count AUC 0.4680 ± 0.0230 (trimmed 0.4919); rows with no history 15.0%
+
+====================================================================================================
+3c. Label-free recency features from the full engagement log (all stages, strictly earlier dates)
+====================================================================================================
+   days_since_account_prev_engagement: NaN 1.3%; raw AUC 0.5367, post-window 0.5172, trimmed 0.5145; win rate by quintile [0.611, 0.598, 0.615, 0.649, 0.685]
+   agent_engagements_prev_30d: NaN 0.0%; raw AUC 0.4497, post-window 0.4735, trimmed 0.4788; win rate by quintile [0.707, 0.648, 0.607, 0.599, 0.596]
+
+====================================================================================================
+4. Account / agent overlap between train and test folds; time-split sizes
+====================================================================================================
+   fold 0: account: 85 in test, 0 unseen in train, 100% of test rows seen; sales_agent: 30 in test, 0 unseen in train, 100% of test rows seen
+   fold 1: account: 85 in test, 0 unseen in train, 100% of test rows seen; sales_agent: 30 in test, 0 unseen in train, 100% of test rows seen
+   fold 2: account: 85 in test, 0 unseen in train, 100% of test rows seen; sales_agent: 30 in test, 0 unseen in train, 100% of test rows seen
+   fold 3: account: 85 in test, 0 unseen in train, 100% of test rows seen; sales_agent: 30 in test, 0 unseen in train, 100% of test rows seen
+   fold 4: account: 85 in test, 0 unseen in train, 100% of test rows seen; sales_agent: 30 in test, 0 unseen in train, 100% of test rows seen
+   deals per account: median 75 [38, 193]; agents per account: median 10
+
+Time split (train = closed before cutoff, test = engaged on/after cutoff):
+   2017-07-01: train 2679 (win 0.666), test 3062 (win 0.602), left out (open at cutoff) 970
+   2017-08-01: train 3306 (win 0.633), test 2266 (win 0.619), left out (open at cutoff) 1139
+   2017-09-01: train 4091 (win 0.621), test 1727 (win 0.615), left out (open at cutoff) 893
+
+====================================================================================================
+5. CatBoost (default settings, seed 42) preview of candidate feature sets on the saved folds
+====================================================================================================
+   F0 v1 as-is                                    ROC-AUC 0.5422 ± 0.0180 | post-window 0.5193 | trimmed 0.5151 | Brier 0.2317
+   F0 - engage_year                               ROC-AUC 0.5408 ± 0.0158 | post-window 0.5214 | trimmed 0.5160 | Brier 0.2319
+   F1 (name fix, no engage_year)                  ROC-AUC 0.5395 ± 0.0156 | post-window 0.5203 | trimmed 0.5148 | Brier 0.2319
+   F1 + month_in_quarter + days_to_quarter_end    ROC-AUC 0.5680 ± 0.0198 | post-window 0.5545 | trimmed 0.5503 | Brier 0.2305
+     same, without engage_month                   ROC-AUC 0.5519 ± 0.0191 | post-window 0.5542 | trimmed 0.5519 | Brier 0.2322
+   calendar only (3 features)                     ROC-AUC 0.5613 ± 0.0167 | post-window 0.5419 | trimmed 0.5375 | Brier 0.2322
+   F0 without any date feature                    ROC-AUC 0.4876 ± 0.0214 | post-window 0.4907 | trimmed 0.4923 | Brier 0.2353

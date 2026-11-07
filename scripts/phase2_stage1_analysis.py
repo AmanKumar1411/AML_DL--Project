@@ -1,11 +1,18 @@
 """Phase 2, Stage 1: read-only data analysis behind PHASE2_PLAN.md.
 
 Prints every table the plan quotes. Reads data/raw/*.csv and
-results/benchmark_v1_folds.csv; writes nothing.
+results/benchmark_v1_folds.csv; writes nothing itself.
 
 Usage (from the project root):
     python scripts/phase2_stage1_analysis.py                     # ~1 min
     python scripts/phase2_stage1_analysis.py --catboost-preview  # + CatBoost feature-set preview, ~3 min
+    # the committed tables (every level of every table, plus the preview):
+    python scripts/phase2_stage1_analysis.py --full --catboost-preview > results/phase2_stage1_tables.txt
+
+Row subsets used throughout:
+    all          every closed deal (6,711)
+    post-window  engaged on/after 2017-03-01, the first close date (left edge trimmed)
+    trimmed      engaged 2017-03-01 .. 2017-11-30 (both edges trimmed)
 """
 from __future__ import annotations
 
@@ -22,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 FOLDS = ROOT / "results" / "benchmark_v1_folds.csv"
 WINDOW_START = pd.Timestamp("2017-03-01")  # first close_date in the data
+TRIM_END = pd.Timestamp("2017-11-30")  # drops December 2017, whose win-rate bump is unexplained
 MIN_N = 30
 SMOOTH_M = 20  # pseudo-counts for smoothed win rates
 
@@ -60,6 +68,7 @@ def closed_deals(raw: dict[str, pd.DataFrame], fix_product: bool = True) -> pd.D
     c["days_to_quarter_end"] = ((ed + pd.offsets.QuarterEnd(0)) - ed).dt.days
     c["weeks_to_quarter_end"] = c.days_to_quarter_end // 7
     c["post_window"] = ed >= WINDOW_START
+    c["trimmed"] = (ed >= WINDOW_START) & (ed <= TRIM_END)
     return c
 
 
@@ -195,7 +204,7 @@ def section_censoring(raw: dict[str, pd.DataFrame], c: pd.DataFrame) -> None:
           f"engaged on/after: n={(c.post_window).sum()}, win {c[c.post_window].won.mean():.3f}")
 
 
-def section_calendar(c: pd.DataFrame) -> None:
+def section_calendar(raw: dict[str, pd.DataFrame], c: pd.DataFrame) -> None:
     header("2b. Within-quarter calendar pattern (engage-time information)")
     print(c.pivot_table(index=c.engage_date.dt.to_period("Q").astype(str), columns="month_in_quarter",
                         values="won", aggfunc=["mean", "size"]).round(3).to_string())
@@ -206,11 +215,34 @@ def section_calendar(c: pd.DataFrame) -> None:
     for key in ["month_in_quarter", "engage_month"]:
         t = win_table(c, key).sort_values(key)
         print(f"   {key}: " + ", ".join(f"{k}: {w:.3f} (n={n})" for k, w, n in zip(t[key], t.win_rate, t.n)))
+    t = c[c.trimmed]
+    print(f"\nTrimmed rows only (engaged {WINDOW_START.date()} .. {TRIM_END.date()}, n={len(t)}): win rate by month in quarter "
+          + ", ".join(f"{k}: {w:.3f} (n={n})" for k, w, n in t.groupby("month_in_quarter").won.agg(["mean", "size"]).itertuples()))
+
+    print("\nCould dropping open deals create the gradient? Dropped open share and worst-case bounds per (quarter, month):")
+    p = raw["pipeline"].dropna(subset=["engage_date"]).copy()
+    p["closed"], p["won"] = p.deal_stage.isin(["Won", "Lost"]), p.deal_stage.eq("Won")
+    p["quarter"] = p.engage_date.dt.to_period("Q").astype(str)
+    p["month_in_quarter"] = (p.engage_date.dt.month - 1) % 3 + 1
+    g = p.groupby(["quarter", "month_in_quarter"]).agg(engaged=("closed", "size"), closed=("closed", "sum"), won=("won", "sum"))
+    g["dropped_open_share"] = 1 - g.closed / g.engaged
+    g["win_rate_closed"] = g.won / g.closed
+    g["win_if_all_open_lost"] = g.won / g.engaged
+    g["win_if_all_open_won"] = (g.won + g.engaged - g.closed) / g.engaged
+    print(g.round(3).to_string())
+
+    dec = c[c.engage_date > TRIM_END]
+    dur = (dec.close_date - dec.engage_date).dt.days
+    fast = c[c.post_window & ((c.close_date - c.engage_date).dt.days <= 30)]
+    print(f"\nDecember 2017: n={len(dec)}, win {dec.won.mean():.3f}; median duration won {dur[dec.won == 1].median():.0f} / "
+          f"lost {dur[dec.won == 0].median():.0f} days. For comparison, post-window deals closed within 30 days win "
+          f"{fast.won.mean():.3f} (n={len(fast)}), so 'only fast closers are observed' does NOT explain the bump.")
+
     print("\nOld 'quarter-end flag' (last 14 days of the quarter):")
     print(c.groupby(c.days_to_quarter_end <= 13).won.agg(["mean", "size"]).round(3).to_string())
 
 
-def section_profiles(c: pd.DataFrame) -> None:
+def section_profiles(c: pd.DataFrame, full: bool = False) -> None:
     header("3. Candidate signals: win rate, n, 95% Wilson CI (n < 30 marked 'too small'), chi2 heterogeneity")
     d = c.copy()
     d["agent_x_product"] = d.sales_agent + " | " + d["product"]
@@ -228,22 +260,21 @@ def section_profiles(c: pd.DataFrame) -> None:
         small = t[t.n < MIN_N]
         print(f"\n--- {key}: {len(t)} levels; chi2={s:.1f}, dof={dof}, p={p:.3g}; "
               f"levels with n<30: {len(small)} ({small.n.sum()} rows)")
-        print((t if len(t) <= 30 else pd.concat([t.head(5), t.tail(5)])).round(3).to_string(index=False))
+        print((t if full or len(t) <= 30 else pd.concat([t.head(5), t.tail(5)])).round(3).to_string(index=False))
 
 
 def section_signal_strength(c: pd.DataFrame) -> None:
     header("3b. Univariate out-of-fold AUC on the saved Phase 1 folds (smoothed target mean, m=20)")
     post = lambda d: d.post_window  # noqa: E731
+    trim = lambda d: d.trimmed  # noqa: E731
+    d = c.assign(agent_x_product=c.sales_agent + "|" + c["product"])
     rows = []
     for key in ["engage_year", "engage_q", "engage_month", "month_in_quarter", "weeks_to_quarter_end",
-                "sales_agent", "account", "product", "manager", "regional_office", "sector", "office_location"]:
-        mu, sd = oof_te_auc(c, key)
-        mu_p, _ = oof_te_auc(c, key, post)
-        rows.append({"feature": key, "levels": c[key].nunique(), "oof_auc": mu, "std": sd, "oof_auc_post_window": mu_p})
-    d = c.assign(agent_x_product=c.sales_agent + "|" + c["product"])
-    mu, sd = oof_te_auc(d, "agent_x_product")
-    rows.append({"feature": "agent_x_product", "levels": d.agent_x_product.nunique(), "oof_auc": mu, "std": sd,
-                 "oof_auc_post_window": oof_te_auc(d, "agent_x_product", post)[0]})
+                "sales_agent", "account", "product", "manager", "regional_office", "sector", "office_location",
+                "agent_x_product"]:
+        mu, sd = oof_te_auc(d, key)
+        rows.append({"feature": key, "levels": d[key].nunique(), "oof_auc": mu, "std": sd,
+                     "oof_auc_post_window": oof_te_auc(d, key, post)[0], "oof_auc_trimmed": oof_te_auc(d, key, trim)[0]})
     print(pd.DataFrame(rows).round(4).to_string(index=False))
 
     print("\nJoint key x month_in_quarter cells (mixes the key with the calendar main effect):")
@@ -259,19 +290,20 @@ def section_signal_strength(c: pd.DataFrame) -> None:
             print(f"   {key:<16} within {strata:<17} chi2={s:7.1f} dof={dof:4d} p={p:.3g}")
 
     print("\nTime-aware history preview (training-fold deals closed strictly before engage_date):")
-    post_rows = c.post_window.to_numpy()
+    post_rows, trim_rows = c.post_window.to_numpy(), c.trimmed.to_numpy()
     for key in ["sales_agent", "account", "product"]:
         rate, count = time_aware_history(c, key)
         r, rs = fold_auc(c, rate)
         n, ns = fold_auc(c, count)
-        print(f"   {key:<12} win-rate AUC {r:.4f} ± {rs:.4f} (post-window {fold_auc(c, rate, post_rows)[0]:.4f}); "
-              f"count AUC {n:.4f} ± {ns:.4f}; rows with no history {np.mean(count == 0):.1%}")
+        print(f"   {key:<12} win-rate AUC {r:.4f} ± {rs:.4f} (post-window {fold_auc(c, rate, post_rows)[0]:.4f}, "
+              f"trimmed {fold_auc(c, rate, trim_rows)[0]:.4f}); count AUC {n:.4f} ± {ns:.4f} "
+              f"(trimmed {fold_auc(c, count, trim_rows)[0]:.4f}); rows with no history {np.mean(count == 0):.1%}")
 
 
 def section_recency(raw: dict[str, pd.DataFrame], c: pd.DataFrame) -> None:
     header("3c. Label-free recency features from the full engagement log (all stages, strictly earlier dates)")
     log = raw["pipeline"].dropna(subset=["engage_date"])
-    post = c.post_window.to_numpy()
+    post, trim = c.post_window.to_numpy(), c.trimmed.to_numpy()
 
     def per_key(key):
         return {k: np.sort(g.engage_date.to_numpy()) for k, g in log.dropna(subset=[key]).groupby(key)}
@@ -294,7 +326,7 @@ def section_recency(raw: dict[str, pd.DataFrame], c: pd.DataFrame) -> None:
         filled = np.where(np.isnan(v), np.nanmax(v) + 1, v)
         q = pd.qcut(pd.Series(filled).rank(method="first"), 5, labels=False)
         print(f"   {name}: NaN {np.isnan(v).mean():.1%}; raw AUC {roc_auc_score(c.won, filled):.4f}, "
-              f"post-window {roc_auc_score(c.won[post], filled[post]):.4f}; "
+              f"post-window {roc_auc_score(c.won[post], filled[post]):.4f}, trimmed {roc_auc_score(c.won[trim], filled[trim]):.4f}; "
               f"win rate by quintile {c.won.groupby(q).mean().round(3).tolist()}")
 
 
@@ -347,9 +379,9 @@ def section_catboost_preview(raw: dict[str, pd.DataFrame]) -> None:
         "calendar only (3 features)": pd.concat([f0[["engage_month"]], calendar], axis=1),
         "F0 without any date feature": f0.drop(columns=["engage_year", "engage_month"]),
     }
-    y, fold, post = fix.won.to_numpy(), fix.fold.to_numpy(), fix.post_window.to_numpy()
+    y, fold, post, trim = fix.won.to_numpy(), fix.fold.to_numpy(), fix.post_window.to_numpy(), fix.trimmed.to_numpy()
     for name, X in configs.items():
-        auc, auc_post, brier = [], [], []
+        auc, auc_post, auc_trim, brier = [], [], [], []
         for k in range(5):
             tr, te = fold != k, fold == k
             model = CatBoostClassifier(random_seed=42, verbose=0, allow_writing_files=False,
@@ -357,22 +389,24 @@ def section_catboost_preview(raw: dict[str, pd.DataFrame]) -> None:
             p = model.fit(X[tr], y[tr]).predict_proba(X[te])[:, 1]
             auc.append(roc_auc_score(y[te], p))
             auc_post.append(roc_auc_score(y[te][post[te]], p[post[te]]))
+            auc_trim.append(roc_auc_score(y[te][trim[te]], p[trim[te]]))
             brier.append(brier_score_loss(y[te], p))
         print(f"   {name:<46} ROC-AUC {np.mean(auc):.4f} ± {np.std(auc, ddof=1):.4f} | "
-              f"post-window {np.mean(auc_post):.4f} | Brier {np.mean(brier):.4f}", flush=True)
+              f"post-window {np.mean(auc_post):.4f} | trimmed {np.mean(auc_trim):.4f} | Brier {np.mean(brier):.4f}", flush=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--catboost-preview", action="store_true", help="also fit CatBoost on 7 feature sets (~3 min)")
+    parser.add_argument("--full", action="store_true", help="print every level of every win-rate table")
     args = parser.parse_args()
     raw = load_raw()
     c = closed_deals(raw)
     print(f"{len(c):,} closed deals, win rate {c.won.mean():.4f}")
     section_joins(raw)
     section_censoring(raw, c)
-    section_calendar(c)
-    section_profiles(c)
+    section_calendar(raw, c)
+    section_profiles(c, full=args.full)
     section_signal_strength(c)
     section_recency(raw, c)
     section_overlap(c)
