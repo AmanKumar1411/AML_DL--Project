@@ -30,7 +30,7 @@ predictive-sales project/
 ├── notebook/                         # Jupyter notebooks for EDA and analysis
 │   ├── 01_EDA.ipynb
 │   ├── 02_Modeling.ipynb
-│   └── 03_Results_Analysis.ipynb
+│   └── archive/                      # Leaky experiments, history only
 ├── reports/                          # Documentation
 │   ├── DL-Report.tex
 │   └── Viva_Master_Guide.md
