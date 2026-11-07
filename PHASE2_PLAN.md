@@ -1,6 +1,6 @@
 # Phase 2 Plan: Feature Engineering
 
-Status: **Stage 1 (analysis) and Stage 2 (plan) done, revised once after an independent review (section 5). Stage 3 (implementation) not started.**
+Status: **Stage 1 and Stage 2 done; revised twice after independent review and approved (section 5). Stage 3 executed; results in the README's "Feature engineering" section.**
 Branch: `overnight-upgrade`. Model architectures and hyperparameters stay unchanged (that is Phase 3).
 
 Every number below can be reproduced with a read-only script, which writes nothing itself. Its full output is committed as **`results/phase2_stage1_tables.txt`**: every level of every win-rate table, with n, 95% CI and the "too small" flag, plus the CatBoost preview. Two runs of that command were byte-identical.
@@ -282,12 +282,12 @@ All features are computed per training fold by `src/features.py`. History featur
   - A deal never sees itself: its own `close_date` is after its `engage_date` (minimum duration 1 day). The code asserts this.
   - The history pool is the **training fold only**, for training and test rows alike, so test labels can never enter. Deployment would also see test-fold deals; this choice is the conservative one.
   - `prior` is one constant per fold, so it carries no row-level information. `m = 20` is fixed in advance (about 10% of a typical agent's deals) and is **not tuned**.
-- **OOF target encoding** (comparison arm only): `TargetEncoder(target_type="binary", smooth="auto", cv=5, shuffle=True, random_state=42)`, fit inside the training fold. Training rows get cross-fitted values; test rows get values fit on the full training fold.
+- **OOF target encoding** (comparison arm only): `TargetEncoder(target_type="binary", smooth="auto", cv=5, shuffle=True, random_state=42)`, fit inside the training fold with **`fit_transform`**. Training rows get cross-fitted values (calling `fit` then `transform` would not cross-fit them); test rows get values fit on the full training fold.
 - **Recency (label-free)**, computed from the full `sales_pipeline.csv` engagement log, including open deals, using strictly earlier `engage_date`s:
   - `days_since_account_prev_engagement`. A NaN (the account's first engagement, 1.3%) is filled **inside `RecencyFeatures` itself** with the training-fold maximum, before the generic imputers run.
   - `agent_engagements_prev_30d`: the agent's engagements in [t − 30 days, t).
   - No outcome and no close date is involved, and this is the same information a live system would have.
-- **In-fold imputers.** Numeric columns use the median and categorical columns the most frequent value, both fit on the training fold. The run logs how many values each imputer fills. After the fix they should fill none, so the run **stops if any of the 13 v1 columns of F1–F4 needs imputing**. New features fill their own documented gaps (above), so F4 cannot set off a false alarm.
+- **In-fold imputers.** Numeric columns use the median and categorical columns the most frequent value, both fit on the training fold. The v2 file does **not** apply v1's all-row fill of `series` and `sales_price` (`process_data.py:62-63`), so any gap reaches these imputers and the stop below can actually fire. The run logs how many values each imputer fills. After the fix they should fill none, so the run **stops if any of the 13 v1 columns of F1–F4 needs imputing**. New features fill their own documented gaps (above), so F4 cannot set off a false alarm.
 
 ### 2.4 Leakage guards
 
@@ -351,7 +351,7 @@ The time split has no left-edge rows in its test set, so its post-window AUC equ
 ### 2.8 Sanity checks that stop the run
 
 1. **The folds match** the saved file (`save_or_verify_folds`), and the row order of the v2 processed file matches the folds' `opportunity_id`s.
-2. **The Dummy reproduces Phase 1 exactly** (every metric, every fold). Stronger: **F0 reproduces `results/benchmark_v1.csv` exactly for all six Phase 1 models.** TabPFN on CPU was byte-identical across runs in Phase 1. If it ever differs, the run stops and reports the difference rather than loosening the check silently. F0's TabPFN result is therefore also a repeatability check against an independent earlier run.
+2. **The Dummy reproduces Phase 1 exactly** (every metric, every fold). Stronger: **F0 reproduces `results/benchmark_v1.csv` exactly for all six Phase 1 models.** TabPFN on CPU was byte-identical across runs in Phase 1. The five deterministic models must match exactly. For TabPFN, the run logs the largest difference in any per-fold metric. If it is 0, fine; if it is at most 1e-6, the run continues and adds a needs_human flag; above 1e-6 it stops. F0 passes the columns in v1's `FEATURES` order with the dtypes `pd.read_csv` gives them, because TabPFN's output depends on column order. F0's TabPFN result is therefore also a repeatability check against an independent earlier run.
 3. **Shuffled labels:**
    - Permute `y` inside each training fold (seed 42) and run the *whole* fold pipeline, including history and TE tables, on the shuffled labels. Score against the true test labels.
    - On the **frozen rung**, with LogReg, CatBoost, LightGBM and TabPFN.
@@ -371,17 +371,19 @@ The score is the mean of CatBoost's and TabPFN's fold-mean ROC-AUC on the primar
 
 Otherwise keep the lower rung. On a tie, the lower rung wins (parsimony). D1, D2 and F4-TE can never be frozen; F4-TE cannot because it uses outcomes of deals that closed *after* the scored deal was engaged, which the hard rules do not allow.
 
-The trimmed AUC is reported for every step but is not part of the rule. The rule is unchanged from the first draft, so it still cannot be fitted to the results. The frozen rung must also not fall below F0 under GroupKFold, judged by CatBoost and LightGBM on every rung plus TabPFN on F0 and the frozen rung; otherwise the README flags it.
+The trimmed AUC is reported for every step but is not part of the rule. The rule is unchanged from the first draft and was fixed before any Phase 2 run (the Stage 1 CatBoost preview was already known). The frozen rung must also not fall below F0 under GroupKFold, judged by CatBoost and LightGBM on every rung plus TabPFN on F0 and the frozen rung; otherwise the README flags it.
 
 If the timing gate (2.11) removes TabPFN from a rung, that step of the rule uses CatBoost and LightGBM instead, and the README says so.
+
+Edge case, decided in advance: the ladder is cumulative, so if F3 fails but F4 passes against the accepted rung, F4 is frozen as scored (only scored rungs can be frozen), and needs_human notes that the rejected agent features ride along.
 
 Expected result: **F2.**
 
 ### 2.10 Stage 3 work items, in commit order
 
 1. **`src/process_data.py`:**
-   - Before editing, record the SHA-256 of `data/processed/processed_sales_data.csv`.
-   - Add a minimal, commented `fix_product_names` option that maps `GTXPro` to `GTX Pro` before the products join.
+   - Before editing, record the SHA-256 of `data/processed/processed_sales_data.csv` and copy the file aside, so a failed hash check can be undone without reverting code.
+   - Add a minimal, commented `fix_product_names` option that maps `GTXPro` to `GTX Pro` before the products join. With the fix on, the all-row fill of `series` and `sales_price` is skipped (gaps are left to the in-fold imputers).
    - `python -m src.process_data` writes the **unchanged** v1 file `processed_sales_data.csv`, plus `processed_sales_data_v2.csv` with the fix.
    - v1 (`main.py`, `--check-v1`) and Phase 1 keep reading the v1 file, so they stay reproducible.
    - After regenerating, assert the v1 file's hash is unchanged and run `python -m src.benchmark --check-v1`. Stop if either fails.
@@ -418,6 +420,8 @@ Expected result: **F2.**
      - `src/phase3_pipeline.py:451`: the comment "hybrid improves decision confidence".
      - `:481`: the print "Hybrid achieves best balance — proves necessity of both".
      - `:692–693`: the prints "PHASE 3: HYBRID INNOVATION" and "fully reproducible".
+     - Then `python -m py_compile src/phase3_pipeline.py`, because `--check-v1` never executes lines 481 or 692 (and `main.py` would rewrite committed results).
+   - `PHASE1_PLAN.md:223`: "This proves the benchmark wraps v1 faithfully" is reworded, with the same deviation note.
    - No "publication-ready" or "novel" found. The notebooks' two "improves generalization" lines describe L2 regularisation in general and stay.
 8. **README "Feature engineering" section:**
    - One honest opening sentence on signal strength.
@@ -425,10 +429,11 @@ Expected result: **F2.**
    - An F0 → frozen-rung table next to the Dummy and the 0.233 reference.
      - It includes the **D1 row** (F2 + `engage_month`), so readers see why TabPFN's all-rows AUC may fall below Phase 1's 0.567.
      - It shows all-rows, post-window and trimmed AUC.
-   - GroupKFold and time-split results.
+   - GroupKFold and time-split results, with a note that in F3/F4 every GroupKFold test row has `account_hist_n = 0`, a value that in training only marks the early, 72.8%-won cohort; a worse Brier there is a design effect, not evidence that history hurts.
+   - One line on selection: the calendar features were chosen after scoring about 17 candidates on these same folds (and the time-split test rows were part of that analysis). The gain, about 0.035 post-window AUC against a null SD of about 0.007, is far above that selection noise.
    - Three bullets, including the groups that did not help.
    - Any claim that within-quarter timing is "the only real signal" must hold in the trimmed column as well.
-   - `key_results`: the rung to freeze, the best AUC per model, and whether any model beats Brier 0.233. If the best AUC is below 0.58, say so.
+   - `key_results`: the rung to freeze, the best AUC per model **over the eligible rungs F0–F4 only** (D1 reported separately), and whether any model beats Brier 0.233. If the best AUC is below 0.58, say so.
 
 ### 2.11 Runtime budget (M2 CPU)
 
@@ -450,11 +455,14 @@ Compared with the first draft, this cuts 30 TabPFN fits:
 - 15 from GroupKFold (F1–F4 except the frozen rung);
 - 5 from the second run (F0).
 
-**Timing gate.** Before the primary run, `--time-one-fold` fits TabPFN on fold 0 of F4, the widest rung, and records t, the seconds per fold. It prints the revised total, 56·t plus 20 min, using t as an upper bound for every rung. If the total is above 3 h, the run applies these cuts in this order, stops cutting as soon as the projected total is 3 h or less, and the README lists every cut taken:
+**Timing gate.** Before the primary run, the gate fits TabPFN on fold 0 of **F2 (14 features) and F4 (23 features)**; both fits are cached and reused by the primary run. It projects the total by charging t(F2) to every planned fit on a rung with at most 15 features (F0, F1, F2, D1) and t(F4) to F3, F4 and any 17+ feature fit, plus 20 min, and prints it. If the total is above 3 h, the run applies these cuts in this order, stops cutting as soon as the projected total is 3 h or less, and the README lists every cut taken:
 1. Drop TabPFN from the shuffled-label check. The leakage risk is in the feature pipeline, which LogReg, CatBoost and LightGBM already exercise. Saves 5 fits.
 2. Time split: TabPFN on F0, the frozen rung and D1 only. Saves 3 fits.
 3. Drop the second-run TabPFN fits, relying on F0's byte-for-byte match with Phase 1 to show repeatability. Saves 5 fits.
 4. Primary: drop TabPFN on F3 and F4. CatBoost and LightGBM carry the negative-control evidence, and the freeze rule falls back to them for those steps (2.9). Saves 10 fits.
+5. If still over 3 h (about 4.9 min per fold or slower): TabPFN only on primary F0, F2, D1 and the frozen rung; status "partial".
+
+Any cut is recorded in needs_human as well as the README, since cuts 4 and 5 break the brief's "TabPFN on every feature rung".
 
 No single command runs past about 60 minutes.
 
@@ -490,7 +498,7 @@ No single command runs past about 60 minutes.
 | D15 | TabPFN on CPU only. | About 2 min per fold is fast enough, and CPU was byte-identical in Phase 1; MPS could break determinism. |
 | D16 | Time-split cutoff 2017-08-01. | The most balanced split (3,306 train / 2,266 test). The test months cover every month-in-quarter position. |
 | D17 | Post-window and trimmed AUCs on every rung of every evaluation. The freeze rule requires gains to appear post-window; the trimmed column is reported but not used by the rule. | The post-window column guards against features that only exploit the left edge. The trimmed column also drops the unexplained December bump, which sits on F2's new features. |
-| D18 | Freeze rule as in 2.9 (≥ 0.005 all rows, ≥ 0.003 post-window, bootstrap CI excludes 0, parsimony). | Decided before seeing any Phase 2 result, so it cannot be fitted to them. |
+| D18 | Freeze rule as in 2.9 (≥ 0.005 all rows, ≥ 0.003 post-window, bootstrap CI excludes 0, parsimony). | Fixed before any Phase 2 run. (The Stage 1 CatBoost preview of F2 was already known, so "cannot be fitted to the results" would overstate it.) |
 | D19 | The second run (for the diff) repeats TabPFN on the **frozen rung only**. | F0's TabPFN result is compared byte for byte with Phase 1's independent run, which already shows TabPFN repeats on CPU. |
 | D20 | SHAP from CatBoost's out-of-fold predictions on the frozen rung. | TabPFN SHAP is too slow for 6,711 rows. |
 | D21 | Leave the `technolgy` sector typo. | It is consistent and unused in joins, so it does not change any model. Fixing it would only churn data. |
@@ -524,3 +532,18 @@ An independent review returned REVISE with two required changes and nine suggest
 | S7 | The per-level Stage 1 tables are not on disk. | `results/phase2_stage1_tables.txt` committed (`--full`), byte-identical across two runs. | header, 1.5, D2 |
 | S8 | Polish misses `phase3_pipeline.py:451` and `:692–693`, and PHASE1_PLAN.md's "unchanged" note. | Both added to the polish item, plus a deviation note in PHASE1_PLAN.md. | 2.10.7 |
 | S9 | Show D1 in the README table, not only in the CSV. | The README's F0 → frozen table includes the D1 row and all three AUC columns. | 2.10.8 |
+
+### Revision 3 (approved with optional suggestions, all adopted)
+
+| # | Suggestion | Change |
+|---|---|---|
+| A1 | The v2 file would inherit v1's all-row fill, so the imputation stop could never fire. | v2 skips the fill (2.3, 2.10.1). |
+| A2 | The timing gate charges 23-feature time to every fit; no rule beyond cut 4; cuts must reach needs_human. | Gate times F2 and F4 fold 0 and charges by width; cut 5 added; cuts go to needs_human (2.11). |
+| A3 | Decide now what a tiny TabPFN mismatch on F0 does. | Exact for the five deterministic models; TabPFN ≤ 1e-6 continues with a flag, above stops; column order pinned (2.8.2). |
+| A4 | State the selection caveat; D18 overstated. | README line added (2.10.8); D18 and 2.9 reworded. |
+| A5 | Cumulative-ladder edge case. | Resolution written down (2.9). |
+| A6 | GroupKFold `account_hist_n = 0` design effect. | README note (2.10.8). |
+| A7 | key_results over F0–F4 only. | 2.10.8. |
+| A8 | `TargetEncoder.fit_transform` for cross-fitting. | 2.3. |
+| A9 | Back up the v1 processed file. | 2.10.1. |
+| A10 | `PHASE1_PLAN.md:223` "proves"; `py_compile` after editing prints. | 2.10.7. |
