@@ -4,9 +4,16 @@
   "machine": "arm64",
   "seed": 42,
   "n_folds": 5,
-  "ceiling": "catboost",
+  "models": [
+    "dummy",
+    "logreg",
+    "mlp",
+    "hybrid",
+    "catboost",
+    "tabpfn"
+  ],
   "tabpfn_device": "cpu",
-  "tabpfn_model_version": "package default",
+  "tabpfn_model_version": "v3.5",
   "TABPFN_ALLOW_CPU_LARGE_DATASET": "true",
   "packages": {
     "numpy": "2.5.4",

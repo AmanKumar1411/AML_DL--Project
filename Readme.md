@@ -27,7 +27,9 @@ How the benchmark is run:
 | LogReg v1 | 0.510 ± 0.018 | 0.659 ± 0.021 | 0.518 ± 0.026 | 0.640 ± 0.015 | 0.436 ± 0.030 | 0.489 ± 0.018 | 0.250 ± 0.003 | 43% |
 | DualPathMLP v1 | 0.519 ± 0.013 | 0.659 ± 0.015 | 0.749 ± 0.012 | 0.629 ± 0.004 | 0.927 ± 0.032 | 0.608 ± 0.012 | 0.237 ± 0.002 | 93% |
 | Hybrid v1 | 0.518 ± 0.012 | 0.662 ± 0.016 | 0.735 ± 0.017 | 0.630 ± 0.002 | 0.881 ± 0.045 | 0.599 ± 0.015 | 0.238 ± 0.002 | 88% |
-| CatBoost (temporary ceiling) | 0.542 ± 0.018 | 0.676 ± 0.015 | 0.772 ± 0.001 | 0.632 ± 0.001 | 0.994 ± 0.002 | 0.630 ± 0.001 | 0.232 ± 0.002 | 99% |
+| CatBoost (classical baseline) | 0.542 ± 0.018 | 0.676 ± 0.015 | 0.772 ± 0.001 | 0.632 ± 0.001 | 0.994 ± 0.002 | 0.630 ± 0.001 | 0.232 ± 0.002 | 99% |
+| TabPFN (ceiling) | 0.567 ± 0.010 | 0.691 ± 0.010 | 0.774 ± 0.000 | 0.632 ± 0.000 | 1.000 ± 0.000 | 0.632 ± 0.000 | 0.229 ± 0.001 | 100% |
+| *Constant 63.2% forecast (Brier reference)* | 0.500 | 0.632 | — | — | — | — | 0.233 | — |
 
 How to read the table:
 - Each cell is the mean ± std over the 5 folds.
@@ -38,18 +40,16 @@ How to read the table:
 
 - **At the floor.** v1 scores ROC-AUC 0.510–0.519, against 0.500 for the Dummy. The MLP and the Hybrid beat 0.5 in all 5 folds, but only by 0.008–0.038. LogReg falls below 0.5 in 2 of the 5 folds.
 - **Its F1 comes from predicting "won".** The Dummy has the best F1 at threshold 0.5. The MLP and the Hybrid predict "won" for 93% and 88% of deals. Tuning the Hybrid's threshold for F1 makes it predict "won" for almost everyone. v1's probabilities are also less accurate than a constant 63.2% forecast (Brier 0.237–0.250 vs 0.233).
-- **The ceiling is low as well.** CatBoost with default settings reaches only 0.542 ROC-AUC. It beats the MLP and the Hybrid in all 5 folds, and LogReg in 4 of 5, but only by a small margin. The 14 v1 features carry little signal, so the next step is better features, not a bigger model.
+- **The ceiling is low as well.** TabPFN-3.5 with default settings reaches only 0.567 ROC-AUC. It beats every v1 model in all 5 folds, by about 0.05, and CatBoost (0.542) sits between the two. TabPFN is the only model whose probabilities beat the constant 63.2% forecast in every fold (Brier 0.229 vs 0.233), yet it still predicts "won" for every deal at threshold 0.5. Even the strongest available model finds little signal in the 14 v1 features, so the next step is better features, not a bigger model.
 
-> **Ceiling note.** The planned ceiling is TabPFN with default settings. Its 3.5 weights are in a gated Hugging Face repo, and this machine isn't logged in for it yet. Until then, CatBoost with default settings is the ceiling, labelled "temporary ceiling". To add TabPFN:
-> 1. Accept the terms at <https://huggingface.co/Prior-Labs/tabpfn_3_5>.
-> 2. Run `hf auth login` (or set `HF_TOKEN`).
-> 3. Rerun the benchmark without `--ceiling`. It reuses the same saved folds.
+> **Ceiling and baseline.** The ceiling is TabPFN-3.5 (`tabpfn` 9.2.0) with default settings; only the seed and the CPU device are pinned. It takes about 2 minutes per fold on an M2 CPU. CatBoost with default settings is kept as a strong classical baseline. To set up TabPFN access, see [Setup](#setup).
 
-**Run it** (about 30 s on an M2 CPU with CatBoost):
+**Run it:**
 
 ```bash
-python -m src.benchmark --out results/benchmark_v1.csv --ceiling catboost
-python -m src.benchmark --check-v1   # checks the benchmark reproduces v1's original numbers exactly
+python -m src.benchmark --out results/benchmark_v1.csv     # all models, ~11 min on an M2 CPU
+python -m src.benchmark --out results/quick.csv --models dummy,logreg,mlp,hybrid,catboost   # no TabPFN, ~30 s
+python -m src.benchmark --check-v1                         # checks the benchmark reproduces v1's original numbers exactly
 ```
 
 Outputs in `results/`:
@@ -76,11 +76,20 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-**3. Run.**
+**3. Set up TabPFN access (one time).** TabPFN-3.5's weights (876 MB) are gated:
+
+1. While logged in to Hugging Face, accept the terms at <https://huggingface.co/Prior-Labs/tabpfn_3_5>.
+2. Create a Read token (Hugging Face → Settings → Access Tokens) and run `.venv/bin/hf auth login`.
+3. Accept the licence at <https://ux.priorlabs.ai> (License tab) and save your API key as `~/.cache/tabpfn/auth_token`, or set `TABPFN_TOKEN`. Otherwise the first run opens a browser login.
+4. **python.org Python on macOS only:** install Python's root certificates (run "Install Certificates.command", or link `certifi`'s `cacert.pem` to `…/Python.framework/Versions/3.12/etc/openssl/cert.pem`). Without them, TabPFN's licence check fails with a misleading "gated repo" error.
+
+To skip TabPFN, leave it out of `--models`.
+
+**4. Run.**
 
 ```bash
 python -m src.process_data                     # data/raw -> data/processed/processed_sales_data.csv
-python -m src.benchmark --ceiling catboost     # Phase 1 benchmark (~30 s)
+python -m src.benchmark                        # Phase 1 benchmark (~11 min with TabPFN)
 python main.py                                 # v1 single-split pipeline (~5 s); rewrites the v1 files in results/
 ```
 

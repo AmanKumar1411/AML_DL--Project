@@ -2,7 +2,7 @@
 
 Status: **approved and executed** on branch `phase1-benchmark`. The results are in the README's "Benchmark (Phase 1)" section. Deviations from this plan:
 - **Environment:** Option B was chosen (tabpfn 9.2.0), and v1 reproduced exactly on it.
-- **Ceiling:** TabPFN-3.5 weights are in a gated Hugging Face repo that isn't authorised on this machine, so CatBoost is the labelled temporary ceiling.
+- **Ceiling:** TabPFN-3.5 was added once access was set up (gated Hugging Face weights, a Prior Labs licence token, and root certificates for python.org Python). Until then, CatBoost stood in as a temporary ceiling; it is now kept as a classical baseline.
 - **Requirements:** `Requirements.txt` was renamed to `requirements.txt` with exact pins, instead of adding a separate `requirements-benchmark.txt`.
 
 The rest of this document is the original plan, unchanged.
